@@ -222,7 +222,7 @@ export default function CheckoutPage() {
               notification_type: 'system',
               notification_title: 'New Order Received',
               notification_content: `${user.email} has ordered "${item.title}" for ₱${item.price.toLocaleString()}`,
-              notification_link: '/user/orders',
+              notification_link: '/user/transactions',
             })
           }
 
@@ -329,9 +329,9 @@ export default function CheckoutPage() {
                 ))}
               </div>
               <div className="flex flex-col gap-2">
-                <Button onClick={() => router.push('/user/orders')} className="w-full rounded-xl gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700">
+                <Button onClick={() => router.push('/user/transactions')} className="w-full rounded-xl gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700">
                   <Package className="h-4 w-4" />
-                  View My Orders
+                  View My Transactions
                 </Button>
                 <Button variant="outline" onClick={() => router.push('/browse')} className="w-full rounded-xl gap-2">
                   <ShoppingBag className="h-4 w-4" />

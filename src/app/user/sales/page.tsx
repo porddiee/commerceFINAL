@@ -103,7 +103,7 @@ export default function SalesPage() {
             notification_type: 'system',
             notification_title: notificationTitle,
             notification_content: notificationContent,
-            notification_link: `/user/orders`,
+            notification_link: `/user/transactions`,
           })
           
           if (notificationError) {

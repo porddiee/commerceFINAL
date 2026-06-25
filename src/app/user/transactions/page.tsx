@@ -160,7 +160,7 @@ export default function TransactionsPage() {
             notification_type: 'system',
             notification_title: notificationTitle,
             notification_content: notificationContent,
-            notification_link: `/user/orders`,
+            notification_link: `/user/transactions`,
           })
         } catch (err) {
           console.error('Error creating notification:', err)

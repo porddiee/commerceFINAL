@@ -296,8 +296,8 @@ export default function ManageProductsPage() {
       {/* Stats Cards Dashboard Section */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* Total Products */}
-        <Card className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Products</p>
@@ -310,8 +310,8 @@ export default function ManageProductsPage() {
         </Card>
 
         {/* Active Public */}
-        <Card className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Public</p>
@@ -324,8 +324,8 @@ export default function ManageProductsPage() {
         </Card>
 
         {/* Items Sold */}
-        <Card className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Items Sold</p>
@@ -338,8 +338,8 @@ export default function ManageProductsPage() {
         </Card>
 
         {/* Total Views */}
-        <Card className="group relative overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Views</p>
