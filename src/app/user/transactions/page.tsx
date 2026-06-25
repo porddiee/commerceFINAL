@@ -601,7 +601,7 @@ export default function TransactionsPage() {
                       </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild className="text-xs font-semibold rounded-lg h-9">
-                      <Link href={`/user/messages/${order.seller_id}`}>
+                      <Link href={`/user/messages?seller=${order.seller_id}`}>
                         <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
                         Chat Seller
                       </Link>
@@ -798,7 +798,7 @@ export default function TransactionsPage() {
                   {/* Actions Footer */}
                   <div className="px-4 py-3 sm:px-5 border-t flex flex-wrap gap-2 justify-end bg-slate-50/20">
                     <Button variant="outline" size="sm" asChild className="text-xs font-semibold rounded-lg h-9">
-                      <Link href={`/user/messages/${sale.buyer_id}`}>
+                      <Link href={`/user/messages?seller=${sale.buyer_id}`}>
                         <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
                         Chat Buyer
                       </Link>
