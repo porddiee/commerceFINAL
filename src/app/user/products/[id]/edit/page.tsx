@@ -29,7 +29,8 @@ export default function EditProductPage() {
     category_id: '',
     condition: 'good',
     location: '',
-    buy_type: 'meetup',
+    buy_type: 'buy_now',
+    quantity: 1 as number | string,
   })
 
   useEffect(() => {
@@ -66,7 +67,8 @@ export default function EditProductPage() {
         category_id: data.category_id,
         condition: data.condition,
         location: data.location,
-        buy_type: data.buy_type || 'meetup',
+        buy_type: data.buy_type || 'buy_now',
+        quantity: data.quantity !== undefined && data.quantity !== null ? data.quantity : 1,
       })
       setExistingImages(data.images || [])
     }
@@ -143,7 +145,8 @@ export default function EditProductPage() {
           condition: formData.condition,
           location: formData.location,
           images: allImages,
-          buy_type: formData.buy_type,
+          buy_type: 'buy_now',
+          quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
         })
         .eq('id', params.id)
 
@@ -253,16 +256,42 @@ export default function EditProductPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="location" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Meetup Location</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="Surigao City"
-                    required
-                    className="h-11 border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl font-semibold"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="location" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Location</Label>
+                    <Input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Surigao City"
+                      required
+                      className="h-11 border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl font-semibold"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity" className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={formData.quantity}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setFormData({ ...formData, quantity: '' });
+                        } else {
+                          const num = parseInt(val);
+                          setFormData({ ...formData, quantity: isNaN(num) ? '' : num });
+                        }
+                      }}
+                      onBlur={() => {
+                        if (formData.quantity === '' || Number(formData.quantity) < 1) {
+                          setFormData({ ...formData, quantity: 1 });
+                        }
+                      }}
+                      min="1"
+                      className="h-11 border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl font-semibold"
+                    />
+                  </div>
                 </div>
               </div>
 

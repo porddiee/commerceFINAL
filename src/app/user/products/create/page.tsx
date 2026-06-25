@@ -47,8 +47,8 @@ export default function CreateProductPage() {
     category_id: '',
     condition: 'good',
     location: profile?.location || '',
-    quantity: 1,
-    buy_type: 'meetup',
+    quantity: 1 as number | string,
+    buy_type: 'buy_now',
   })
   const [priceSuggestion, setPriceSuggestion] = useState<{ min: number; avg: number; max: number } | null>(null)
 
@@ -164,8 +164,8 @@ export default function CreateProductPage() {
         location: formData.location,
         images: uploadedUrls,
         status: 'active',
-        buy_type: formData.buy_type,
-        quantity: formData.quantity,
+        buy_type: 'buy_now',
+        quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
       })
       if (error) throw error
       setSuccess(true)
@@ -321,7 +321,20 @@ export default function CreateProductPage() {
                       id="quantity"
                       type="number"
                       value={formData.quantity}
-                      onChange={(e) => update('quantity', parseInt(e.target.value) || 1)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          update('quantity', '');
+                        } else {
+                          const num = parseInt(val);
+                          update('quantity', isNaN(num) ? '' : num);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (formData.quantity === '' || Number(formData.quantity) < 1) {
+                          update('quantity', 1);
+                        }
+                      }}
                       min="1"
                       className="h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold"
                     />
@@ -369,7 +382,7 @@ export default function CreateProductPage() {
                 {/* Location */}
                 <div className="space-y-1.5">
                   <Label htmlFor="location" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                    Meetup Location <span className="text-red-500">*</span>
+                    Location <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
                     <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -381,39 +394,6 @@ export default function CreateProductPage() {
                       required
                       className="h-11 pl-10 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold"
                     />
-                  </div>
-                </div>
-
-                {/* Buy Type */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sale Type</Label>
-                  <div className="space-y-2">
-                    {BUY_TYPES.map((bt) => (
-                      <button
-                        key={bt.value}
-                        type="button"
-                        onClick={() => update('buy_type', bt.value)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left transition-all duration-150 ${
-                          formData.buy_type === bt.value
-                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30'
-                            : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700'
-                        }`}
-                      >
-                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                          formData.buy_type === bt.value ? 'border-indigo-600' : 'border-muted-foreground'
-                        }`}>
-                          {formData.buy_type === bt.value && (
-                            <div className="w-2 h-2 rounded-full bg-indigo-600" />
-                          )}
-                        </div>
-                        <div>
-                          <p className={`text-xs font-bold ${formData.buy_type === bt.value ? 'text-indigo-700 dark:text-indigo-300' : 'text-foreground'}`}>
-                            {bt.label}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{bt.desc}</p>
-                        </div>
-                      </button>
-                    ))}
                   </div>
                 </div>
               </div>
