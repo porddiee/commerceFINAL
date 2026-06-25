@@ -140,7 +140,7 @@ export default function ListingTemplatesPage() {
   const handleCreateFromTemplate = (template: any) => {
     // Store template data in localStorage to use in create listing page
     localStorage.setItem('listingTemplate', JSON.stringify(template))
-    window.location.href = '/user/listings/create'
+    window.location.href = '/user/products/create'
   }
 
   return (

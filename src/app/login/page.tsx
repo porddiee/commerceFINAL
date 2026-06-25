@@ -6,55 +6,59 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, ArrowRight, TrendingUp } from 'lucide-react'
+import Image from 'next/image'
+
+const FEATURES = [
+  { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
+  { icon: Shield, title: 'Safe Transactions', desc: 'Verified sellers and secure payments' },
+  { icon: Users, title: 'Trusted Community', desc: 'Connect with real people near you' },
+  { icon: Star, title: 'Rated & Reviewed', desc: 'Make informed decisions with reviews' },
+]
+
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+    </svg>
+  )
+}
 
 export default function LoginPage() {
   const router = useRouter()
-  const { user, setUser, setProfile } = useAuthStore()
+  const { user, setUser, setProfile, profile } = useAuthStore()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (user) {
-      router.push('/user')
+  useEffect(() => { 
+    if (user && profile) {
+      router.push(profile.role === 'admin' ? '/admin' : '/user')
     }
-  }, [user, router])
+  }, [user, profile, router])
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-
       if (data.user) {
         setUser(data.user)
-        
-        // Fetch user profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-        
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single()
         if (profile) {
           setProfile(profile)
+          router.push(profile.role === 'admin' ? '/admin' : '/user')
         }
-
-        router.push('/user')
       }
     } catch (error: any) {
       setError(error.message)
@@ -66,20 +70,13 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setLoading(true)
     setError('')
-
     try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       })
-
       if (error) throw error
-
-      if (data.url) {
-        window.location.href = data.url
-      }
+      if (data.url) window.location.href = data.url
     } catch (error: any) {
       setError(error.message)
       setLoading(false)
@@ -87,162 +84,181 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-indigo-600 via-blue-500 to-indigo-700 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
-      {/* Left Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12">
-        <Card className="w-full max-w-md bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-2xl rounded-3xl border-0">
-          <CardHeader className="space-y-2 pb-6">
-            <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
-              Welcome back
-            </CardTitle>
-            <CardDescription className="text-center text-base">
-              Sign in to your SuriMart account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form onSubmit={handleEmailLogin} className="space-y-5">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="name@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-                />
+    <div className="min-h-screen flex bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-900 overflow-hidden">
+      {/* Animated glow blobs — matches homepage hero */}
+      <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
+        <div className="absolute top-10 left-10 w-96 h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-indigo-300 rounded-full blur-3xl animate-pulse delay-500" />
+      </div>
+
+      {/* ── Left: Branding Panel ── */}
+      <div className="hidden lg:flex lg:w-[52%] relative z-10 flex-col justify-between p-14">
+        {/* Logo */}
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg overflow-hidden">
+            <Image src="/logo.png" alt="SuriMart" width={44} height={44} className="object-contain" />
+          </div>
+          <span className="text-white font-black text-xl tracking-tight">SuriMart</span>
+        </div>
+
+        {/* Hero text */}
+        <div className="space-y-8 mt-4">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10">
+              <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
+              Surigao Region Marketplacee
+            </div>
+            <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight animate-broken-lamp">
+              Your local market,{' '}
+              <span className="bg-gradient-to-r from-blue-300 via-indigo-200 to-white bg-clip-text text-transparent">
+                now online.
+              </span>
+            </h1>
+            <p className="text-indigo-100/90 text-lg leading-relaxed max-w-md font-medium">
+              Buy and sell with trusted community members in Surigao del Norte. Safe, simple, and local.
+            </p>
+          </div>
+
+          {/* Feature cards */}
+          <div className="grid grid-cols-1 gap-3">
+            {FEATURES.map(({ icon: Icon, title, desc }, index) => (
+              <div
+                key={title}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10 hover:bg-white/15 transition-colors group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 group-hover:bg-white/25 transition-colors">
+                  <Icon
+                    className="h-5 w-5 text-white animate-subtle-bounce"
+                    style={{ animationDelay: `${index * 200}ms` }}
+                  />
+                </div>
+                <div>
+                  <p className="text-white text-sm font-bold">{title}</p>
+                  <p className="text-indigo-200/80 text-xs mt-0.5">{desc}</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                  className="h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600"
-                />
+            ))}
+          </div>
+        </div>
+
+        <p className="text-indigo-300/60 text-sm">© 2025 SuriMart · Surigao del Norte</p>
+      </div>
+
+      {/* ── Right: Login Form ── */}
+      <div className="w-full lg:w-[48%] relative z-10 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-md space-y-6">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-3 lg:hidden mb-2">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden">
+              <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="object-contain" />
+            </div>
+            <span className="text-white font-black text-lg">SuriMart</span>
+          </div>
+
+          {/* Form card — frosted white on the indigo background */}
+          <div className="rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-2xl border-0 p-8">
+            <div className="mb-7">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome back</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to your SuriMart account</p>
+            </div>
+
+            {/* Google */}
+            <Button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full h-11 rounded-xl bg-white hover:bg-slate-50 text-slate-800 font-semibold border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] gap-3 mb-5"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon />}
+              Continue with Google
+            </Button>
+
+            {/* Divider */}
+            <div className="relative flex items-center gap-4 mb-5">
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">or</span>
+              <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            </div>
+
+            {/* Email form */}
+            <form onSubmit={handleEmailLogin} className="space-y-4">
+              {/* Email */}
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="name@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11 pl-10 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all duration-200 hover:border-slate-300"
+                  />
+                </div>
               </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</Label>
+                  <button type="button" className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 font-semibold transition-colors">
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11 pl-10 pr-10 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all duration-200 hover:border-slate-300"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
               {error && (
-                <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20">
+                <div className="text-sm text-red-600 bg-red-50 border border-red-200 p-3.5 rounded-xl flex items-start gap-2.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 mt-1.5" />
                   {error}
                 </div>
               )}
-              <Button 
-                type="submit" 
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 text-white font-semibold shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]" 
+
+              {/* Submit */}
+              <Button
+                type="submit"
                 disabled={loading}
+                className="w-full h-11 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] gap-2 mt-1"
               >
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign in with email
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {loading ? 'Signing in…' : 'Sign in'}
               </Button>
             </form>
-
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <Separator className="bg-gray-200 dark:bg-gray-700" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white dark:bg-gray-900 px-4 text-muted-foreground font-medium">Or continue with</span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-12 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
-                <path
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  fill="#4285F4"
-                />
-                <path
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  fill="#34A853"
-                />
-                <path
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  fill="#FBBC05"
-                />
-                <path
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  fill="#EA4335"
-                />
-              </svg>
-              Sign in with Google
-            </Button>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4 pt-6">
-            <div className="text-sm text-center text-muted-foreground">
-              Don't have an account?{' '}
-              <Link href="/register" className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-semibold hover:underline transition-colors">
-                Sign up
-              </Link>
-            </div>
-          </CardFooter>
-        </Card>
-      </div>
-
-      {/* Right Side - Website Branding */}
-      <div className="hidden lg:flex lg:w-1/2 items-center justify-center p-12 relative overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 right-10 w-72 h-72 bg-white rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-300 rounded-full blur-3xl animate-pulse delay-500" />
-        </div>
-        
-        <div className="relative z-10 text-center space-y-8">
-          <div className="space-y-4">
-            <h1 className="text-6xl lg:text-7xl font-bold text-white tracking-tight drop-shadow-lg">
-              SuriMart
-            </h1>
-            <p className="text-2xl lg:text-3xl text-white/90 font-light">
-              Surigao Marketplace
-            </p>
           </div>
-          <div className="space-y-6 pt-8">
-            <div className="flex items-center justify-center gap-4 text-white/80">
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-white">Buy & Sell</p>
-                <p className="text-sm">Thousands of products</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-center gap-4 text-white/80">
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-white">Secure</p>
-                <p className="text-sm">Safe transactions</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-center gap-4 text-white/80">
-              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div className="text-left">
-                <p className="font-semibold text-white">Community</p>
-                <p className="text-sm">Connect with locals</p>
-              </div>
-            </div>
-          </div>
+
+          {/* Footer */}
+          <p className="text-center text-sm text-indigo-200">
+            Don't have an account?{' '}
+            <Link href="/register" className="text-white font-bold hover:text-indigo-100 transition-colors underline underline-offset-2">
+              Create one free
+            </Link>
+          </p>
         </div>
       </div>
     </div>

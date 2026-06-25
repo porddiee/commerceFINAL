@@ -13,17 +13,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useAuthStore } from '@/lib/store/auth'
+import { useAuthStore, useCartStore } from '@/lib/store/auth'
 import { createClient } from '@/lib/supabase/client'
 import { User, LogOut, Settings, Bell, Check, ShoppingCart, X } from 'lucide-react'
 
 export function Header() {
   const router = useRouter()
   const { user, profile, signOut } = useAuthStore()
+  const { cartCount, setCartCount } = useCartStore()
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
-  const [cartCount, setCartCount] = useState(0)
 
   const fetchNotifications = async () => {
     if (!user) return
@@ -31,7 +31,7 @@ export function Header() {
       const { data } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20)
       setNotifications(data || [])
@@ -69,8 +69,10 @@ export function Header() {
     if (user) {
       fetchNotifications()
       fetchCartCount()
+    } else {
+      setCartCount(0)
     }
-  }, [user, showNotifications])
+  }, [user])
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -79,130 +81,145 @@ export function Header() {
   }
 
   return (
-    <header className="border-b-2 border-gray-200 dark:border-gray-700 bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-900/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg">
+    <header className="sticky top-0 z-35 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md shadow-sm transition-all duration-200">
       <div className="container flex h-16 items-center justify-end px-4 lg:px-8">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5">
           {user ? (
             <>
-              <Button variant="ghost" asChild className="relative hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 hover:scale-[1.02] rounded-full">
+              {/* Shopping Cart button link */}
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                asChild 
+                className="relative hover:bg-indigo-500/5 hover:scale-105 active:scale-95 transition-all duration-200 rounded-full h-9 w-9 text-slate-600 dark:text-slate-400 hover:text-indigo-650"
+              >
                 <Link href="/user/saved">
-                  <ShoppingCart className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <ShoppingCart className="h-5 w-5" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-orange-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-gradient-to-r from-indigo-600 to-blue-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-md animate-pulse">
                       {cartCount > 9 ? '9+' : cartCount}
                     </span>
                   )}
                 </Link>
               </Button>
+
+              {/* Notifications Dropdown */}
               <DropdownMenu open={showNotifications} onOpenChange={setShowNotifications}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 hover:scale-[1.02] rounded-full">
-                    <Bell className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="relative hover:bg-indigo-500/5 hover:scale-105 active:scale-95 transition-all duration-200 rounded-full h-9 w-9 text-slate-600 dark:text-slate-400 hover:text-indigo-650"
+                  >
+                    <Bell className="h-5 w-5" />
                     {notifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-orange-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                      <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-gradient-to-r from-red-500 to-orange-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-md">
                         {notifications.length > 9 ? '9+' : notifications.length}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-80" align="end" forceMount>
-                  <DropdownMenuLabel className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-blue-400 dark:to-indigo-400 font-bold">Notifications</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-muted-foreground">
-                      No notifications
-                    </div>
-                  ) : (
-                    notifications.map((notification) => (
-                      <DropdownMenuItem key={notification.id} className="flex flex-col items-start p-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300">
-                        <div className="flex items-start gap-2 w-full">
-                          <Check className="h-4 w-4 mt-0.5 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
-                          <div className="flex-1 cursor-pointer" onClick={() => {
+                <DropdownMenuContent className="w-80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md p-2 shadow-xl z-50 mt-1" align="end" forceMount>
+                  <DropdownMenuLabel className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
+                    <Bell className="h-3.5 w-3.5 text-indigo-500" />
+                    Notifications
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="my-1.5" />
+                  <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1">
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground font-medium">
+                        No notifications yet
+                      </div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div key={notification.id} className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-indigo-500/5 transition-colors group relative">
+                          <Check className="h-4 w-4 mt-0.5 text-indigo-500 flex-shrink-0" />
+                          <div className="flex-1 cursor-pointer min-w-0" onClick={() => {
                             if (notification.link) {
                               router.push(notification.link)
                               setShowNotifications(false)
                             }
                           }}>
-                            <p className="text-sm font-medium">{notification.title || 'Notification'}</p>
-                            <p className="text-xs text-muted-foreground mt-1">{notification.message || notification.content}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(notification.created_at).toLocaleDateString()}
-                            </p>
+                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{notification.title || 'Notification'}</p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal line-clamp-2">{notification.message || notification.content}</p>
+                            <p className="text-[10px] text-slate-400 mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 flex-shrink-0 hover:bg-red-100 dark:hover:bg-red-900/20"
+                            className="h-5 w-5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/20 text-slate-400 hover:text-rose-500 flex-shrink-0 transition-colors opacity-0 group-hover:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleDismissNotification(notification.id)
                             }}
                           >
-                            <X className="h-3 w-3 text-red-500" />
+                            <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href="/user/notifications" className="text-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                      ))
+                    )}
+                  </div>
+                  <DropdownMenuSeparator className="my-1.5" />
+                  <DropdownMenuItem asChild className="rounded-lg justify-center p-2">
+                    <Link href="/user/notifications" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                       View all notifications
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Avatar Account Profile Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:scale-[1.02] transition-all duration-200 ring-2 ring-transparent hover:ring-indigo-500/50">
-                    <Avatar className="h-10 w-10">
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:scale-105 active:scale-95 transition-all duration-200 ring-2 ring-indigo-500/10 hover:ring-indigo-500/35 p-0">
+                    <Avatar className="h-9 w-9">
                       <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || 'User'} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-500 text-white font-bold">
-                        {profile?.full_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase()}
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-blue-500 text-white font-bold text-xs uppercase">
+                        {profile?.full_name?.charAt(0) || user.email?.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{profile?.full_name || 'User'}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                <DropdownMenuContent className="w-52 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md p-1.5 shadow-xl mt-1" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal px-2.5 py-2">
+                    <div className="flex flex-col space-y-0.5">
+                      <p className="text-xs font-bold text-slate-850 dark:text-slate-100">{profile?.full_name || 'My Profile'}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
                     </div>
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300">
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem asChild className="rounded-lg hover:bg-indigo-500/5 px-2.5 py-2 cursor-pointer">
                     <Link href="/user/profile">
-                      <User className="mr-2 h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      Profile
+                      <User className="mr-2 h-4 w-4 text-indigo-500" />
+                      <span className="text-xs font-semibold">My Profile</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300">
+                  <DropdownMenuItem asChild className="rounded-lg hover:bg-indigo-500/5 px-2.5 py-2 cursor-pointer">
                     <Link href="/user/settings">
-                      <Settings className="mr-2 h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      Settings
+                      <Settings className="mr-2 h-4 w-4 text-indigo-500" />
+                      <span className="text-xs font-semibold">Settings</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-300 text-red-600 dark:text-red-400">
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem onClick={handleSignOut} className="rounded-lg hover:bg-rose-500/10 px-2.5 py-2 text-rose-600 dark:text-rose-400 cursor-pointer">
                     <LogOut className="mr-2 h-4 w-4" />
-                    Sign out
+                    <span className="text-xs font-semibold">Sign out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" asChild className="hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] rounded-full">
+              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                 <Link href="/about">About</Link>
               </Button>
-              <Button variant="ghost" asChild className="hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] rounded-full">
+              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                 <Link href="/contact">Contact</Link>
               </Button>
-              <Button variant="ghost" asChild className="hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] rounded-full">
+              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                 <Link href="/login">Log in</Link>
               </Button>
-              <Button asChild className="bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] rounded-full">
+              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all rounded-full px-4 h-9 font-bold text-xs">
                 <Link href="/register">Sign up</Link>
               </Button>
             </div>

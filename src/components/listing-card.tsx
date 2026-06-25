@@ -6,9 +6,8 @@ import Image from 'next/image'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ShoppingCart, Eye } from 'lucide-react'
+import { Eye, Star, Package, ShoppingCart, MapPin, Calendar, ShoppingBag } from 'lucide-react'
 import { formatPrice, formatRelativeTime } from '@/lib/utils'
-import { ListingHoverCard } from '@/components/listing-hover-card'
 
 interface ListingCardProps {
   id: string
@@ -24,8 +23,12 @@ interface ListingCardProps {
   createdAt: string
   description?: string
   isSaved?: boolean
-  onToggleSave?: () => void
+  onToggleSave?: (id: string) => void
   className?: string
+  quantity?: number
+  avgRating?: number
+  reviewCount?: number
+  purchaseCount?: number
 }
 
 export default function ListingCard({
@@ -44,99 +47,148 @@ export default function ListingCard({
   isSaved = false,
   onToggleSave,
   className,
+  quantity = 1,
+  avgRating = 0,
+  reviewCount = 0,
+  purchaseCount = 0,
 }: ListingCardProps) {
   const [imageError, setImageError] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <Link href={`/listings/${id}`}>
-        <Card className={`hover:shadow-2xl hover:scale-[1.02] transition-all duration-200 cursor-pointer overflow-hidden h-full flex flex-col border-2 border-transparent hover:border-primary/20 rounded-2xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 ${className || ''}`}>
-        <CardHeader className="p-2 pb-1">
-          <div className="aspect-square bg-muted rounded-2xl overflow-hidden mb-1 relative shadow-inner">
-            {images && images.length > 0 && !imageError ? (
-              <Image
-                src={images[0]}
-                alt={title}
-                fill
-                className="object-cover hover:scale-110 transition-transform duration-500"
-                loading="lazy"
-                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
-                No image
+    <div className="relative group h-full">
+      <Link href={`/products/${id}`} className="block h-full">
+        <Card className={`hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden h-full flex flex-col border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 rounded-2xl bg-white dark:bg-slate-950 ${className || ''}`}>
+          
+          {/* Card Header (Image Container) */}
+          <CardHeader className="p-3 pb-0 relative">
+            <div className="aspect-square bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden relative shadow-inner">
+              {images && images.length > 0 && !imageError ? (
+                <Image
+                  src={images[0]}
+                  alt={title}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                  loading="lazy"
+                  sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                  onError={() => setImageError(true)}
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-600 text-xs bg-slate-50 dark:bg-slate-900">
+                  <ShoppingBag className="h-6 w-6 mb-1 text-slate-300 dark:text-slate-700" />
+                  No image available
+                </div>
+              )}
+
+              {/* Sliding Description Overlay (reveals on hover directly above product title) */}
+              {description && (
+                <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 text-white p-3 text-xs translate-y-full group-hover:translate-y-0 transition-transform duration-300 backdrop-blur-sm flex flex-col justify-center pointer-events-none select-none z-10 h-[70%]">
+                  <p className="line-clamp-4 leading-relaxed text-slate-200 font-medium">
+                    {description}
+                  </p>
+                </div>
+              )}
+
+              {/* Floating Condition Badge */}
+              <div className="absolute top-2 left-2 z-10">
+                <span className={`capitalize px-2.5 py-1 rounded-lg font-bold text-[9px] tracking-wider shadow-sm border backdrop-blur-md bg-white/90 dark:bg-slate-950/90 ${
+                  condition === 'new' ? 'text-emerald-600 border-emerald-200/50 dark:text-emerald-400 dark:border-emerald-950/50' :
+                  condition === 'like_new' ? 'text-blue-600 border-blue-200/50 dark:text-blue-400 dark:border-blue-950/50' :
+                  condition === 'good' ? 'text-violet-600 border-violet-200/50 dark:text-violet-400 dark:border-violet-950/50' :
+                  'text-amber-600 border-amber-200/50 dark:text-amber-400 dark:border-amber-950/50'
+                }`}>
+                  {condition.replace('_', ' ')}
+                </span>
               </div>
-            )}
-            {onToggleSave && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className={`absolute top-1 right-1 backdrop-blur-sm h-6 w-6 rounded-full shadow-lg hover:scale-110 transition-all duration-200 ${isSaved ? 'bg-red-500 hover:bg-red-600' : 'bg-white/90 dark:bg-gray-900/90 hover:bg-white dark:hover:bg-gray-900'}`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  onToggleSave(id)
-                }}
-              >
-                <ShoppingCart className={`h-3 w-3 ${isSaved ? 'text-white' : ''}`} />
-              </Button>
-            )}
-          </div>
-          <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.2rem] text-gray-900 dark:text-gray-100">{title}</h3>
-          <p className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400">{formatPrice(price, currency)}</p>
-        </CardHeader>
-        <CardContent className="p-2 pt-0 flex-1">
-          <div className="flex items-center gap-0.5 text-[10px] text-muted-foreground mb-0.5">
-            <span className={`capitalize px-2 py-0.5 rounded-full font-medium ${
-              condition === 'new' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-              condition === 'like_new' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-              condition === 'good' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-              'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-            }`}>
-              {condition.replace('_', ' ')}
-            </span>
-            <span className="text-gray-400">•</span>
-            <span>{location}</span>
-          </div>
-          <div className="flex items-center justify-between text-[9px] text-muted-foreground">
-            <div className="flex items-center gap-0.5">
-              <Eye className="h-1.5 w-1.5 text-blue-500" />
-              <span>{views} views</span>
+
+              {/* Floating Add to Cart Button */}
+              {onToggleSave && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={`absolute top-2 right-2 backdrop-blur-md h-8 w-8 rounded-full shadow-md hover:scale-110 transition-all duration-200 border border-slate-200/30 z-10 ${
+                    isSaved 
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white border-transparent' 
+                      : 'bg-white/95 dark:bg-slate-950/95 hover:bg-white dark:hover:bg-slate-900 text-slate-600 hover:text-indigo-600'
+                  }`}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    onToggleSave(id)
+                  }}
+                  title={isSaved ? "Remove from Cart" : "Add to Cart"}
+                >
+                  <ShoppingCart className={`h-4 w-4 ${isSaved ? 'text-white fill-white' : ''}`} />
+                </Button>
+              )}
             </div>
-            <span>{formatRelativeTime(createdAt)}</span>
-          </div>
-        </CardContent>
-        <CardFooter className="p-2 pt-0">
-          <div className="flex items-center gap-0.5 w-full">
-            <Avatar className="h-4 w-4 ring-2 ring-gradient-to-r from-blue-500 to-purple-500">
-              <AvatarImage src={sellerAvatar} alt={sellerName} />
-              <AvatarFallback className="text-[7px] bg-gradient-to-br from-blue-500 to-purple-500 text-white">{sellerName?.charAt(0) || 'U'}</AvatarFallback>
-            </Avatar>
-            <span className="text-[9px] text-muted-foreground truncate font-medium">{sellerName}</span>
-          </div>
-        </CardFooter>
-      </Card>
-    </Link>
-    {isHovered && (
-      <div className="absolute top-[55%] left-[0%] transform -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none">
-        <ListingHoverCard
-          title={title}
-          price={price}
-          currency={currency}
-          location={location}
-          condition={condition}
-          views={views}
-          createdAt={createdAt}
-          description={description}
-        />
-      </div>
-    )}
-  </div>
+
+            {/* Product Title */}
+            <h3 className="font-bold text-sm sm:text-base line-clamp-2 min-h-[2.5rem] text-slate-800 dark:text-slate-100 leading-snug mt-3">
+              {title}
+            </h3>
+            
+            {/* Product Price */}
+            <p className="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5">
+              {formatPrice(price, currency)}
+            </p>
+          </CardHeader>
+
+          {/* Card Content (Product Metadata) */}
+          <CardContent className="p-3 pt-2 flex-1 space-y-2 border-t border-slate-100 dark:border-slate-900 mt-2">
+            {/* Location */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+              <span className="truncate">{location}</span>
+            </div>
+
+            {/* Availability & Rating */}
+            <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Package className="h-3.5 w-3.5 text-indigo-500/80" />
+                <span className="font-medium text-[11px]">{quantity} available</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                <span className="font-semibold text-slate-700 dark:text-slate-300 text-[11px]">
+                  {avgRating.toFixed(1)}
+                </span>
+                <span className="text-[10px] text-slate-400">({reviewCount})</span>
+              </div>
+            </div>
+
+            {/* Views, Sold Count, Time Ago */}
+            <div className="flex items-center justify-between text-[11px] text-slate-450 dark:text-slate-400 pt-1.5 border-t border-dashed border-slate-100 dark:border-slate-900">
+              <div className="flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5 text-blue-500/70" />
+                <span>{views} views</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-slate-700 dark:text-slate-350">{purchaseCount}</span>
+                <span>sold</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-slate-400" />
+                <span>{formatRelativeTime(createdAt)}</span>
+              </div>
+            </div>
+          </CardContent>
+
+          {/* Card Footer (Seller Info) */}
+          <CardFooter className="p-3 pt-0 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10">
+            <div className="flex items-center gap-2 w-full mt-2.5">
+              <Avatar className="h-6 w-6 ring-2 ring-indigo-500/10">
+                <AvatarImage src={sellerAvatar} alt={sellerName} />
+                <AvatarFallback className="text-[9px] bg-gradient-to-br from-indigo-500 to-blue-500 text-white font-bold">
+                  {sellerName?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-slate-600 dark:text-slate-400 truncate font-semibold">
+                {sellerName}
+              </span>
+            </div>
+          </CardFooter>
+        </Card>
+      </Link>
+    </div>
   )
 }

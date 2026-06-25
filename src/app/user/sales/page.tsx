@@ -179,7 +179,7 @@ export default function SalesPage() {
               <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground mb-4">No sales yet</p>
               <Button asChild>
-                <Link href="/user/listings">Manage Listings</Link>
+                <Link href="/user/products">Manage Products</Link>
               </Button>
             </CardContent>
           </Card>
@@ -250,7 +250,7 @@ export default function SalesPage() {
 
                         <div className="mt-4 flex gap-3">
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/listings/${listing?.id}`}>View Product</Link>
+                            <Link href={`/products/${listing?.id}`}>View Product</Link>
                           </Button>
                           {order.status === 'pending' && (
                             <>

@@ -253,6 +253,7 @@ export default function ConversationPage() {
   }
 
   const handleDeleteConversation = async () => {
+    if (!user) return
     if (!confirm('Are you sure you want to delete this conversation? This will only delete messages for you.')) return
     try {
       // Delete all messages between current user and other user

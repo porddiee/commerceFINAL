@@ -6,23 +6,42 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
-import { ArrowLeft, MapPin, CreditCard, Package, CheckCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, CreditCard, Package, CheckCircle, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { formatPrice } from '@/lib/utils'
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user } = useAuthStore()
   const supabase = createClient()
-  const listingId = searchParams.get('listing')
-  
-  const [listing, setListing] = useState<any>(null)
-  const [seller, setSeller] = useState<any>(null)
+
+  // Support both single ?listing=id and multi ?listings=id1,id2,id3
+  const singleListingId = searchParams.get('listing')
+  const multiListingIds = searchParams.get('listings')
+  const fromParam = searchParams.get('from') // 'cart' → back goes to /user/saved
+
+  // Normalise to an array of IDs
+  const listingIds: string[] = multiListingIds
+    ? multiListingIds.split(',').filter(Boolean)
+    : singleListingId
+    ? [singleListingId]
+    : []
+
+  // For backward-compat we still expose a single "listingId" (first one)
+  const listingId = listingIds[0] ?? null
+
+  const [listings, setListings] = useState<any[]>([])   // all items in this checkout
+  const [sellers, setSellers] = useState<Map<string, any>>(new Map())
+  // legacy single aliases
+  const listing = listings[0] ?? null
+  const seller = sellers.get(listing?.seller_id) ?? null
+
   const [loading, setLoading] = useState(true)
   const [placingOrder, setPlacingOrder] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
-  const [orderId, setOrderId] = useState<string>('')
+  const [orderIds, setOrderIds] = useState<string[]>([])
   const [selectedAddress, setSelectedAddress] = useState<any>(null)
   const [selectedPayment, setSelectedPayment] = useState<string>('')
   const [addresses, setAddresses] = useState<any[]>([])
@@ -40,41 +59,50 @@ export default function CheckoutPage() {
     is_default: false
   })
 
+  const handleBack = () => {
+    if (fromParam === 'cart') router.push('/user/saved')
+    else router.back()
+  }
+
   useEffect(() => {
     if (!user) {
       router.push('/login')
       return
     }
-    if (listingId) {
-      fetchListing()
+    if (listingIds.length > 0) {
+      fetchListings()
       fetchAddresses()
       fetchPaymentMethods()
     }
-  }, [listingId, user])
+  }, [user])
 
-  const fetchListing = async () => {
+  const fetchListings = async () => {
     setLoading(true)
     try {
-      const { data: listingData } = await supabase
+      const { data: listingsData } = await supabase
         .from('listings')
         .select('*')
-        .eq('id', listingId)
+        .in('id', listingIds)
         .eq('status', 'active')
-        .single()
 
-      if (listingData) {
-        setListing(listingData)
-        
-        const { data: sellerData } = await supabase
+      if (listingsData && listingsData.length > 0) {
+        setListings(listingsData)
+
+        // Fetch all unique sellers
+        const sellerIds = [...new Set(listingsData.map((l: any) => l.seller_id))]
+        const { data: sellersData } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', listingData.seller_id)
-          .single()
-        
-        setSeller(sellerData)
+          .in('id', sellerIds)
+
+        const sellerMap = new Map<string, any>()
+        sellersData?.forEach((s: any) => sellerMap.set(s.id, s))
+        setSellers(sellerMap)
+      } else {
+        router.push('/browse')
       }
     } catch (error) {
-      console.error('Error fetching listing:', error)
+      console.error('Error fetching listings:', error)
       router.push('/browse')
     } finally {
       setLoading(false)
@@ -154,54 +182,54 @@ export default function CheckoutPage() {
   }
 
   const handlePlaceOrder = async () => {
-    if (!user || !listing || !seller || !selectedAddress || !selectedPayment) {
+    if (!user || listings.length === 0 || !selectedAddress || !selectedPayment) {
       alert('Please select an address and payment method')
       return
     }
-    
+
     setPlacingOrder(true)
-    
+
     try {
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          buyer_id: user.id,
-          seller_id: seller.id,
-          listing_id: listing.id,
-          total_amount: listing.price,
-          shipping_address: `${selectedAddress.full_name}, ${selectedAddress.phone}, ${selectedAddress.address_line1}${selectedAddress.address_line2 ? ', ' + selectedAddress.address_line2 : ''}, ${selectedAddress.city}, ${selectedAddress.province} ${selectedAddress.postal_code || ''}`,
-          payment_method: selectedPayment,
-          status: 'pending',
-        })
-        .select()
-        .single()
+      const shippingAddress = `${selectedAddress.full_name}, ${selectedAddress.phone}, ${selectedAddress.address_line1}${selectedAddress.address_line2 ? ', ' + selectedAddress.address_line2 : ''}, ${selectedAddress.city}, ${selectedAddress.province} ${selectedAddress.postal_code || ''}`
 
-      if (orderError) {
-        console.error('Supabase order error:', orderError)
-        throw orderError
-      }
+      const placedIds: string[] = []
 
-      if (orderData) {
-        const notificationTitle = 'New Order Received'
-        const notificationContent = `${user.email} has ordered "${listing.title}" for ₱${listing.price.toLocaleString()}`
-        
-        // Create notification for seller using function
-        const { data: notificationData, error: notificationError } = await supabase.rpc('create_notification', {
-          recipient_id: seller.id,
-          notification_type: 'system',
-          notification_title: notificationTitle,
-          notification_content: notificationContent,
-          notification_link: `/user/orders`,
-        })
-        
-        if (notificationError) {
-          console.error('Notification error:', notificationError)
-          console.error('Notification error details:', JSON.stringify(notificationError, null, 2))
+      // Create one order per listing (marketplace model)
+      for (const item of listings) {
+        const itemSeller = sellers.get(item.seller_id)
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            buyer_id: user.id,
+            seller_id: item.seller_id,
+            listing_id: item.id,
+            total_amount: item.price,
+            shipping_address: shippingAddress,
+            payment_method: selectedPayment,
+            status: 'pending',
+          })
+          .select()
+          .single()
+
+        if (orderError) throw orderError
+
+        if (orderData) {
+          placedIds.push(orderData.id)
+          // Notify each seller
+          if (itemSeller) {
+            await supabase.rpc('create_notification', {
+              recipient_id: itemSeller.id,
+              notification_type: 'system',
+              notification_title: 'New Order Received',
+              notification_content: `${user.email} has ordered "${item.title}" for ₱${item.price.toLocaleString()}`,
+              notification_link: '/user/orders',
+            })
+          }
         }
-
-        setOrderId(orderData.id)
-        setOrderPlaced(true)
       }
+
+      setOrderIds(placedIds)
+      setOrderPlaced(true)
     } catch (error: any) {
       console.error('Error placing order:', error)
       alert(`Failed to place order: ${error?.message || 'Unknown error'}`)
@@ -237,54 +265,50 @@ export default function CheckoutPage() {
   if (orderPlaced) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto py-8 px-4 max-w-4xl">
-          <div className="flex items-center gap-4 mb-6">
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/browse">
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold">Order Confirmation</h1>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-green-600">
-                <CheckCircle className="h-5 w-5" />
-                Order Placed Successfully!
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center py-8">
-                <Package className="h-16 w-16 mx-auto mb-4 text-primary" />
-                <p className="text-lg font-semibold">Order ID: {orderId}</p>
-                <p className="text-muted-foreground">
-                  Your order has been placed successfully
-                </p>
+        <div className="container mx-auto py-8 px-4 max-w-2xl">
+          <Card className="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
+            {/* Green hero */}
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-8 py-10 text-center text-white">
+              <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-9 w-9" />
               </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-4 w-4" />
-                  <span>Order Placed</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground" />
-                  <span>Processing</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground" />
-                  <span>Shipped</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <div className="w-4 h-4 rounded-full border-2 border-muted-foreground" />
-                  <span>Delivered</span>
-                </div>
+              <h1 className="text-2xl font-extrabold">Order{orderIds.length > 1 ? 's' : ''} Placed!</h1>
+              <p className="text-emerald-100 text-sm mt-1">
+                {orderIds.length} order{orderIds.length !== 1 ? 's' : ''} successfully created
+              </p>
+            </div>
+            <CardContent className="p-8 space-y-6">
+              {/* Items confirmed */}
+              <div className="space-y-3">
+                {listings.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3 text-sm">
+                    <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <span className="flex-1 font-medium line-clamp-1">{item.title}</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatPrice(item.price, 'PHP')}</span>
+                  </div>
+                ))}
               </div>
-
-              <Button onClick={() => router.push('/user/orders')} className="w-full">
-                View My Orders
-              </Button>
+              {/* Status trail */}
+              <div className="border rounded-2xl p-4 space-y-3">
+                {['Order Placed', 'Processing', 'Shipped', 'Delivered'].map((step, i) => (
+                  <div key={step} className={`flex items-center gap-3 text-sm ${i === 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-muted-foreground'}`}>
+                    {i === 0
+                      ? <CheckCircle className="h-4 w-4" />
+                      : <div className="w-4 h-4 rounded-full border-2 border-current" />}
+                    {step}
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Button onClick={() => router.push('/user/orders')} className="w-full rounded-xl gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700">
+                  <Package className="h-4 w-4" />
+                  View My Orders
+                </Button>
+                <Button variant="outline" onClick={() => router.push('/browse')} className="w-full rounded-xl gap-2">
+                  <ShoppingBag className="h-4 w-4" />
+                  Continue Shopping
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -292,20 +316,22 @@ export default function CheckoutPage() {
     )
   }
 
-  const images = listing.images || []
-  const mainImage = images[0] || '/placeholder.svg'
+  const totalAmount = listings.reduce((sum, l) => sum + (l.price || 0), 0)
 
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={`/listings/${listing.id}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={handleBack}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold">Checkout</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Checkout</h1>
+            {listings.length > 1 && (
+              <p className="text-sm text-muted-foreground">{listings.length} items</p>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -316,44 +342,51 @@ export default function CheckoutPage() {
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-4">
-                  <img
-                    src={mainImage}
-                    alt={listing.title}
-                    className="w-32 h-32 object-cover rounded-lg"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{listing.title}</h3>
-                    <p className="text-2xl font-bold text-primary mt-2">
-                      ₱{listing.price.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Seller: {seller?.full_name || 'Unknown'}
-                    </p>
-                    <div className="mt-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        listing.buy_type === 'reserve' 
-                          ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' 
-                          : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                      }`}>
-                        {listing.buy_type === 'reserve' ? 'Reserve - Seller Confirmation Required' : 'Buy Now - Instant Purchase'}
-                      </span>
-                    </div>
-                  </div>
+                {/* All items */}
+                <div className="space-y-3">
+                  {listings.map((item) => {
+                    const itemSeller = sellers.get(item.seller_id)
+                    const mainImage = item.images?.[0] || '/placeholder.svg'
+                    return (
+                      <div key={item.id} className="flex gap-3 pb-3 border-b border-border/50 last:border-0 last:pb-0">
+                        <img
+                          src={mainImage}
+                          alt={item.title}
+                          className="w-16 h-16 object-cover rounded-xl flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm line-clamp-2">{item.title}</h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">Seller: {itemSeller?.full_name || 'Unknown'}</p>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              item.buy_type === 'reserve'
+                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                                : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            }`}>
+                              {item.buy_type === 'reserve' ? 'Reserve' : 'Buy Now'}
+                            </span>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                              {formatPrice(item.price, 'PHP')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-                
+
                 <div className="border-t pt-4 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>₱{listing.price.toLocaleString()}</span>
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal ({listings.length} item{listings.length !== 1 ? 's' : ''})</span>
+                    <span>{formatPrice(totalAmount, 'PHP')}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span>Shipping Fee</span>
-                    <span>₱0</span>
+                    <span className="text-emerald-600">₱0</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total</span>
-                    <span>₱{listing.price.toLocaleString()}</span>
+                    <span className="text-indigo-600 dark:text-indigo-400">{formatPrice(totalAmount, 'PHP')}</span>
                   </div>
                 </div>
               </CardContent>
@@ -558,12 +591,16 @@ export default function CheckoutPage() {
                 </div>
               )}
 
-              <Button 
-                onClick={handlePlaceOrder} 
-                className="w-full" 
+              <Button
+                onClick={handlePlaceOrder}
+                className="w-full rounded-xl gap-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 font-bold shadow-md shadow-indigo-500/20"
                 disabled={!selectedAddress || !selectedPayment || placingOrder}
               >
-                {placingOrder ? 'Placing Order...' : 'Place Order'}
+                {placingOrder ? (
+                  <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Placing Order{listings.length > 1 ? 's' : ''}…</>
+                ) : (
+                  <><CreditCard className="h-4 w-4" />Place Order{listings.length > 1 ? `s (${listings.length})` : ''}</>
+                )}
               </Button>
             </CardContent>
           </Card>

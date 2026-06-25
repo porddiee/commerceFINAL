@@ -2,14 +2,15 @@ import { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/client'
 import ListingDetailContent from './listing-detail-content'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const supabase = createClient()
+  const resolvedParams = await params
   
   try {
     const { data: listing } = await supabase
       .from('listings')
       .select('title, description, price, currency, images, location')
-      .eq('id', params.id)
+      .eq('id', resolvedParams.id)
       .eq('status', 'active')
       .single()
 
@@ -47,7 +48,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
         images: [imageUrl],
       },
       alternates: {
-        canonical: `/listings/${params.id}`,
+        canonical: `/products/${resolvedParams.id}`,
       },
     }
   } catch (error) {
@@ -58,7 +59,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default function ProductDetailPage({ params }: { params: { id: string } }) {
-  return <ListingDetailContent listingId={params.id} />
+export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = await params
+  return <ListingDetailContent listingId={resolvedParams.id} />
 }
-

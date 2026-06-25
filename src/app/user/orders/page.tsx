@@ -16,7 +16,7 @@ export default function OrdersPage() {
   const supabase = createClient()
   const [orders, setOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [reviewedListings, setReviewedListings] = useState<Set<string>>(new Set())
+  const [reviewedProducts, setReviewedProducts] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (user) {
@@ -67,7 +67,7 @@ export default function OrdersPage() {
         .in('listing_id', listingIds)
       
       const reviewedSet = new Set(reviews?.map((r: any) => r.listing_id) || [])
-      setReviewedListings(reviewedSet)
+      setReviewedProducts(reviewedSet)
       
       setOrders(ordersWithAddresses)
     } catch (error) {
@@ -214,9 +214,9 @@ export default function OrdersPage() {
 
                         <div className="mt-4 flex gap-3">
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/listings/${listing?.id}`}>View Product</Link>
+                            <Link href={`/products/${listing?.id}`}>View Product</Link>
                           </Button>
-                          {order.status === 'delivered' && !reviewedListings.has(listing?.id) && (
+                          {order.status === 'delivered' && !reviewedProducts.has(listing?.id) && (
                             <Button variant="outline" size="sm" asChild>
                               <Link href={`/user/review/${order.id}`}>
                                 <Star className="h-4 w-4 mr-1" />
@@ -224,7 +224,7 @@ export default function OrdersPage() {
                               </Link>
                             </Button>
                           )}
-                          {order.status === 'delivered' && reviewedListings.has(listing?.id) && (
+                          {order.status === 'delivered' && reviewedProducts.has(listing?.id) && (
                             <Button variant="outline" size="sm" disabled>
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Reviewed

@@ -29,7 +29,7 @@ const adminNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { title: 'Users', href: '/admin/users', icon: Users },
   { title: 'Verifications', href: '/admin/verifications', icon: Shield },
-  { title: 'Listings', href: '/admin/listings', icon: ShoppingBag },
+  { title: 'Products', href: '/admin/listings', icon: ShoppingBag },
   { title: 'Categories', href: '/admin/categories', icon: Tag },
   { title: 'Reports', href: '/admin/reports', icon: FileText },
 ]
@@ -50,16 +50,16 @@ export function AdminSidebar() {
           variant="outline"
           size="icon"
           onClick={() => setOpen(!isOpen)}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full"
+          className="bg-indigo-600 text-white border-0 shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full"
         >
           {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar — indigo gradient matching homepage */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-r-2 border-gray-200 dark:border-gray-700 transition-all duration-300 shadow-xl',
+          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
           shouldExpand ? 'w-64' : 'w-16',
           'lg:translate-x-0',
           !isOpen && '-translate-x-full lg:translate-x-0'
@@ -69,19 +69,21 @@ export function AdminSidebar() {
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-center p-4 border-b-2 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-center p-4 border-b border-white/10">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:scale-[1.02]">
-                <span className="text-white font-bold text-lg">M</span>
+              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/20 hover:shadow-indigo-400/30 transition-all duration-200 hover:scale-[1.05] backdrop-blur-sm">
+                <span className="text-white font-black text-lg">M</span>
               </div>
               {shouldExpand && (
-                <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 whitespace-nowrap">SuriMart</span>
+                <span className="font-black text-xl text-white whitespace-nowrap tracking-tight">
+                  SuriMart
+                </span>
               )}
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+          <nav className="flex-1 overflow-y-auto p-3 space-y-1">
             {adminNavItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -91,14 +93,22 @@ export function AdminSidebar() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]',
-                    isActive 
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-purple-500/30' 
-                      : 'hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 text-gray-700 dark:text-gray-300'
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative',
+                    isActive
+                      ? 'bg-white/20 text-white shadow-sm shadow-black/10 backdrop-blur-sm'
+                      : 'text-indigo-200/80 hover:bg-white/10 hover:text-white'
                   )}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {shouldExpand && <span className="whitespace-nowrap font-medium">{item.title}</span>}
+                  <Icon className={cn('h-5 w-5 flex-shrink-0 transition-transform group-hover:scale-105 duration-200', isActive ? 'text-white' : 'text-indigo-300 group-hover:text-white')} />
+                  {shouldExpand && (
+                    <span className={cn('whitespace-nowrap font-semibold text-sm', isActive ? 'text-white' : 'text-indigo-100/80 group-hover:text-white')}>
+                      {item.title}
+                    </span>
+                  )}
+                  {/* Active left accent bar when collapsed */}
+                  {isActive && !shouldExpand && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded-r-full" />
+                  )}
                 </Link>
               )
             })}

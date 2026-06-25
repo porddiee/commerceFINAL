@@ -5,23 +5,17 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
 import {
   Home,
   Search,
-  Heart,
   MessageSquare,
-  Bell,
-  Settings,
-  Plus,
   ShoppingBag,
   FileText,
   LayoutDashboard,
   Menu,
   X,
-  User,
-  LogOut,
   Package,
-  DollarSign,
 } from 'lucide-react'
 import { useSidebarStore } from '@/lib/store/sidebar'
 import { useAuthStore } from '@/lib/store/auth'
@@ -42,7 +36,7 @@ const userNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/user', icon: LayoutDashboard },
   { title: 'Messages', href: '/user/messages', icon: MessageSquare },
   { title: 'My Transactions', href: '/user/transactions', icon: Package },
-  { title: 'Manage Products', href: '/user/listings', icon: ShoppingBag },
+  { title: 'Manage Products', href: '/user/products', icon: ShoppingBag },
   { title: 'Reviews', href: '/user/reviews', icon: FileText },
 ]
 
@@ -70,7 +64,6 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
         .eq('receiver_id', user.id)
         .is('is_read', false)
       
-      // Filter out deleted messages for current user
       const filteredMessages = data?.filter((msg: any) => !msg.deleted_by_receiver) || []
       setUnreadMessageCount(filteredMessages.length)
     } catch (error) {
@@ -89,16 +82,16 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
           variant="outline"
           size="icon"
           onClick={() => setOpen(!isOpen)}
-          className="bg-gradient-to-r from-indigo-600 to-blue-500 text-white border-0 shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full"
+          className="bg-indigo-600 text-white border-0 shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full"
         >
           {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar — indigo gradient matching homepage */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border-r-2 border-gray-200 dark:border-gray-700 transition-all duration-300 shadow-xl',
+          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
           shouldExpand ? 'w-64' : 'w-16',
           'lg:translate-x-0',
           !isOpen && '-translate-x-full lg:translate-x-0'
@@ -108,19 +101,21 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-center p-4 border-b-2 border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-center p-4 border-b border-white/10">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-blue-500 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg hover:shadow-purple-500/30 transition-all duration-200 hover:scale-[1.02]">
-                <span className="text-white font-bold text-lg">M</span>
+              <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden shadow-lg shadow-black/20 hover:shadow-indigo-400/30 transition-all duration-200 hover:scale-[1.05] bg-white/10 border border-white/20 backdrop-blur-sm">
+                <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="w-full h-full object-contain" />
               </div>
               {shouldExpand && (
-                <span className="font-bold text-xl text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-blue-400 dark:to-purple-400 whitespace-nowrap">SuriMart</span>
+                <span className="font-black text-xl text-white whitespace-nowrap tracking-tight">
+                  SuriMart
+                </span>
               )}
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+          <nav className="flex-1 overflow-y-auto p-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -131,21 +126,29 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]',
-                    isActive 
-                      ? 'bg-gradient-to-r from-indigo-600 to-blue-500 text-white shadow-lg shadow-purple-500/30' 
-                      : 'hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-50 dark:hover:from-blue-900/20 dark:hover:to-purple-900/20 text-gray-700 dark:text-gray-300'
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group',
+                    isActive
+                      ? 'bg-white/20 text-white shadow-sm shadow-black/10 backdrop-blur-sm'
+                      : 'text-indigo-200/80 hover:bg-white/10 hover:text-white'
                   )}
                 >
-                  <div className="relative">
-                    <Icon className="h-5 w-5 flex-shrink-0" />
+                  <div className="relative flex-shrink-0">
+                    <Icon className={cn('h-5 w-5 transition-transform group-hover:scale-105 duration-200', isActive ? 'text-white' : 'text-indigo-300 group-hover:text-white')} />
                     {isMessages && unreadMessageCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center shadow-lg">
+                      <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center shadow-md font-bold">
                         {unreadMessageCount}
                       </span>
                     )}
                   </div>
-                  {shouldExpand && <span className="whitespace-nowrap font-medium">{item.title}</span>}
+                  {shouldExpand && (
+                    <span className={cn('whitespace-nowrap font-semibold text-sm', isActive ? 'text-white' : 'text-indigo-100/80 group-hover:text-white')}>
+                      {item.title}
+                    </span>
+                  )}
+                  {/* Active left accent bar */}
+                  {isActive && !shouldExpand && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-white rounded-r-full" />
+                  )}
                 </Link>
               )
             })}

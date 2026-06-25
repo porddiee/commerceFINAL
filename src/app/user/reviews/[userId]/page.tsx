@@ -51,7 +51,7 @@ export default function UserReviewsPage() {
 
       if (error) throw error
 
-      // Fetch reviewee profiles and listings separately
+      // Fetch reviewee profiles and products separately
       const reviewsWithDetails = await Promise.all(
         (data || []).map(async (review) => {
           const [{ data: reviewee }, { data: listing }] = await Promise.all([

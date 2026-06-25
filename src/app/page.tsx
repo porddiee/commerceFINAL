@@ -1,18 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Search, ShoppingBag, Users, Shield, ArrowRight, TrendingUp, Clock, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import ListingCard from '@/components/listing-card'
-import ListingCardSkeleton from '@/components/listing-card-skeleton'
 
 const categoryIcons: Record<string, string> = {
   'Electronics': '💻',
-  'Fashion': '�',
+  'Fashion': '👕',
   'Home & Garden': '🏠',
   'Vehicles': '🚗',
   'Sports & Hobbies': '⚽',
@@ -21,30 +21,21 @@ const categoryIcons: Record<string, string> = {
 
 export default function HomePage() {
   const supabase = createClient()
+  const router = useRouter()
   const { user } = useAuthStore()
+  
   const [categories, setCategories] = useState<any[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [featuredListings, setFeaturedListings] = useState<any[]>([])
   const [allFeaturedListings, setAllFeaturedListings] = useState<any[]>([])
   const [stats, setStats] = useState({ listings: 0, users: 0 })
-
-  const fetchFeaturedListings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(30)
-      
-      if (error) throw error
-      setAllFeaturedListings(data || [])
-      setFeaturedListings((data || []).slice(0, 6))
-    } catch (error) {
-      console.error('Error fetching featured listings:', error)
-    }
-  }
+  const [searchQuery, setSearchQuery] = useState('')
+  
+  // Intersection observer animations
+  const [categoriesInView, setCategoriesInView] = useState(false)
+  const [featuresInView, setFeaturesInView] = useState(false)
+  const categoriesRef = useRef<HTMLDivElement>(null)
+  const featuresRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchCategories()
@@ -55,16 +46,54 @@ export default function HomePage() {
     }
   }, [user])
 
+  const fetchFeaturedListings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      
+      if (error) throw error
+      setAllFeaturedListings(data || [])
+    } catch (error) {
+      console.error('Error fetching featured listings:', error)
+    }
+  }
+
+  // Scroll observers for smooth animations
   useEffect(() => {
-    if (allFeaturedListings.length <= 6) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setCategoriesInView(entry.isIntersecting)
+        })
+      },
+      { threshold: 0.1 }
+    )
 
-    const interval = setInterval(() => {
-      const shuffled = [...allFeaturedListings].sort(() => Math.random() - 0.5)
-      setFeaturedListings(shuffled.slice(0, 6))
-    }, 5000)
+    if (categoriesRef.current) {
+      observer.observe(categoriesRef.current)
+    }
+    return () => observer.disconnect()
+  }, [])
 
-    return () => clearInterval(interval)
-  }, [allFeaturedListings])
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setFeaturesInView(entry.isIntersecting)
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    if (featuresRef.current) {
+      observer.observe(featuresRef.current)
+    }
+    return () => observer.disconnect()
+  }, [])
 
   const fetchCategories = async () => {
     try {
@@ -75,19 +104,14 @@ export default function HomePage() {
 
       if (categoriesError) throw categoriesError
 
-      // Fetch listing counts for each category
+      // Fetch active count for each category
       const categoriesWithCounts = await Promise.all(
         (categoriesData || []).map(async (category) => {
-          const { count, error: countError } = await supabase
+          const { count } = await supabase
             .from('listings')
             .select('*', { count: 'exact', head: true })
             .eq('category_id', category.id)
             .eq('status', 'active')
-
-          if (countError) {
-            console.error('Error fetching count for category:', category.name, countError)
-            return { ...category, count: 0 }
-          }
 
           return { ...category, count: count || 0 }
         })
@@ -125,7 +149,6 @@ export default function HomePage() {
         sellerAvatar: item.listings.profiles?.avatar_url
       })).filter(Boolean) || []
       
-      // Deduplicate by listing ID
       const seen = new Set()
       const deduplicated = listings.filter((listing: any) => {
         if (seen.has(listing.id)) return false
@@ -169,35 +192,131 @@ export default function HomePage() {
     }
   }
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/browse?search=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
   return (
-    <div className="flex-1">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-indigo-600 via-blue-500 to-indigo-700 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 py-16 px-4 relative overflow-hidden min-h-[600px]">
-        {/* Decorative elements */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000" />
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-300 rounded-full blur-3xl animate-pulse delay-500" />
+    <div className="flex-1 space-y-0">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fadeInLeft {
+          from {
+            opacity: 0;
+            transform: translateX(-16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        @keyframes bgPan {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes brokenLamp {
+          0%, 18%, 22%, 25%, 53%, 57%, 100% {
+            opacity: 1;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.9), 0 0 20px rgba(255, 255, 255, 0.4);
+            color: #ffffff;
+          }
+          20%, 24%, 55% {
+            opacity: 0.55;
+            text-shadow: none;
+            color: rgba(226, 232, 240, 0.8);
+          }
+        }
+        @keyframes loopWelcome {
+          0% { opacity: 0; }
+          16.67% { opacity: 1; }
+          91.67% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes loopTo {
+          0%, 16.67% { opacity: 0; }
+          33.33% { opacity: 1; }
+          91.67% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes loopSuriMart {
+          0%, 33.33% { opacity: 0; }
+          50% { opacity: 1; }
+          91.67% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .animate-fade-in-left {
+          animation: fadeInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .animate-bg-pan {
+          background-size: 200% 200%;
+          animation: bgPan 4s ease infinite;
+        }
+        .animate-broken-lamp {
+          animation: brokenLamp 3.5s infinite;
+        }
+        .animate-loop-welcome {
+          animation: loopWelcome 6s infinite;
+        }
+        .animate-loop-to {
+          animation: loopTo 6s infinite;
+        }
+        .animate-loop-surimart {
+          animation: loopSuriMart 6s infinite;
+        }
+      `}} />
+      {/* Hero Showcase Section */}
+      <section className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-900 text-white py-16 px-4 relative overflow-hidden min-h-[600px] flex items-center shadow-xl">
+        {/* Glow backdrop elements */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-10 left-10 w-96 h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
         </div>
         
         <div className="container mx-auto relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Side - Content */}
-            <div className="text-left">
-              <h1 className="text-5xl lg:text-6xl font-bold mb-4 tracking-tight drop-shadow-lg animate-fade-in-up font-sans">
-                <span className="inline-block animate-typing text-white">Welcome to <span className="font-black">SuriMart</span></span>
-              </h1>
-              <p className="text-xl lg:text-2xl text-white/90 mb-8 font-light leading-relaxed animate-fade-in-up delay-200 font-sans">
-                Surigao Marketplace - Your trusted marketplace for buying and selling in the region
-              </p>
-              <div className="flex gap-4 flex-wrap animate-fade-in-up delay-300">
+            {/* Left Side: Content & Actions */}
+            <div className="space-y-8 text-left">
+              <div className="space-y-3.5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10 animate-fade-in-left hover:scale-[1.03] transition-transform cursor-default">
+                  <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
+                  <span className="animate-broken-lamp font-bold">Surigao Region Marketplace</span>
+                </div>
+                <h1 className="text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
+                  <span className="animate-loop-welcome">Welcome</span>
+                  <span className="animate-loop-to">to</span>
+                  <span className="animate-loop-surimart inline-block">
+                    <span className="bg-gradient-to-r from-blue-300 via-indigo-200 to-white bg-clip-text text-transparent bg-size-200 animate-bg-pan">SuriMart</span>
+                  </span>
+                </h1>
+                <p className="text-lg lg:text-xl text-indigo-100/90 font-medium max-w-lg leading-relaxed animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                  Your trusted region marketplace. Safe meetups, verified products, and direct communication.
+                </p>
+              </div>
+
+              <div className="flex gap-4 flex-wrap animate-fade-in-up" style={{ animationDelay: '300ms' }}>
                 <Button 
                   size="lg" 
                   asChild 
-                  className="animate-color-swap shadow-2xl hover:shadow-indigo-500/50 transition-all duration-200 hover:scale-[1.02] rounded-full px-8 font-semibold border-2 border-indigo-600"
+                  className="bg-white hover:bg-indigo-50 text-indigo-700 shadow-xl rounded-full px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-12"
                 >
                   <Link href="/browse">
-                    <ShoppingBag className="mr-2 h-5 w-5" />
+                    <ShoppingBag className="mr-2 h-5 w-5 text-indigo-600 animate-bounce" />
                     Browse Products
                   </Link>
                 </Button>
@@ -205,106 +324,177 @@ export default function HomePage() {
                   size="lg" 
                   variant="outline" 
                   asChild 
-                  className="animate-color-swap-reverse shadow-xl hover:shadow-white/20 transition-all duration-200 hover:scale-[1.02] rounded-full px-8 font-semibold border-2 border-white"
+                  className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg rounded-full px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-12"
                 >
                   <Link href="/register">
-                    <Users className="mr-2 h-5 w-5" />
+                    <Users className="mr-2 h-5 w-5 text-indigo-200" />
                     Start Selling
                   </Link>
                 </Button>
               </div>
               
-              {/* Stats */}
-              <div className="mt-12 grid grid-cols-3 gap-6">
-                <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-white mb-1 font-sans">{stats.listings.toLocaleString()}+</div>
-                  <div className="text-white/70 text-sm font-medium">Active Listings</div>
+              {/* Marketplace stats */}
+              <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+                <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
+                  <div className="text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.listings.toLocaleString()}+</div>
+                  <div className="text-indigo-200/80 text-xs font-semibold uppercase tracking-wider mt-0.5">Active Products</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-white mb-1 font-sans">{stats.users.toLocaleString()}+</div>
-                  <div className="text-white/70 text-sm font-medium">Happy Users</div>
+                <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
+                  <div className="text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.users.toLocaleString()}+</div>
+                  <div className="text-indigo-200/80 text-xs font-semibold uppercase tracking-wider mt-0.5">Verified Users</div>
                 </div>
-                <div className="text-center">
-                  <div className="text-3xl lg:text-4xl font-bold text-white mb-1 font-sans">24/7</div>
-                  <div className="text-white/70 text-sm font-medium">Support</div>
+                <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
+                  <div className="text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">24/7</div>
+                  <div className="text-indigo-200/80 text-xs font-semibold uppercase tracking-wider mt-0.5">Support</div>
                 </div>
               </div>
             </div>
 
-            {/* Right Side - Floating Products */}
-            <div className="relative h-[400px] lg:h-[500px] hidden lg:block">
-              {featuredListings.slice(0, 6).map((listing, index) => (
-                <Link
-                  key={`${listing.id}-${index}`}
-                  href={`/listings/${listing.id}`}
-                  className="absolute w-32 h-32 lg:w-40 lg:h-40 rounded-2xl shadow-2xl overflow-hidden border-4 border-white/20 backdrop-blur-sm group cursor-pointer animate-fade-in-out"
-                  style={{
-                    animationDelay: `${index * 0.2}s`,
-                    left: `${10 + (index % 3) * 35}%`,
-                    top: `${5 + Math.floor(index / 3) * 45}%`,
-                  }}
-                >
-                  {listing.images && listing.images[0] ? (
-                    <img
-                      src={listing.images[0]}
-                      alt={listing.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center">
-                      <span className="text-4xl">📦</span>
-                    </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-2 group-hover:bg-black/70 transition-colors">
-                    <p className="text-white text-xs font-medium truncate">{listing.title}</p>
-                    <p className="text-white/80 text-xs">₱{listing.price?.toLocaleString()}</p>
+            {/* Right Side: Showcase Columns of Featured Listings */}
+            <div className="relative h-[480px] hidden lg:block overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/20 z-10 pointer-events-none" />
+              
+              {/* Featured Label overlay */}
+              <div className="absolute top-4 left-4 z-20 bg-indigo-600/90 text-white font-bold text-[10px] tracking-widest uppercase py-1 px-3.5 rounded-full shadow-md backdrop-blur border border-indigo-400/30">
+                Featured Products
+              </div>
+
+              {/* Grid scroll display */}
+              <div className="grid grid-cols-3 gap-4 h-full">
+                {/* Column 1 - Scroll Up */}
+                <div className="scroll-container h-full overflow-hidden relative">
+                  <div className="scroll-content scroll-column-up space-y-4">
+                    {[...allFeaturedListings, ...allFeaturedListings].map((listing, index) => (
+                      <Link
+                        key={`${listing.id}-col1-${index}`}
+                        href={`/products/${listing.id}`}
+                        className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                      >
+                        {listing.images && listing.images[0] ? (
+                          <img
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <span className="text-2xl">📦</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
+                          <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
+                          <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                        </div>
+                      </Link>
+                    ))}
                   </div>
-                </Link>
-              ))}
+                </div>
+
+                {/* Column 2 - Scroll Down */}
+                <div className="scroll-container h-full overflow-hidden relative">
+                  <div className="scroll-content scroll-column-down space-y-4">
+                    {[...allFeaturedListings, ...allFeaturedListings].reverse().map((listing, index) => (
+                      <Link
+                        key={`${listing.id}-col2-${index}`}
+                        href={`/products/${listing.id}`}
+                        className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                      >
+                        {listing.images && listing.images[0] ? (
+                          <img
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <span className="text-2xl">📦</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
+                          <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
+                          <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 3 - Scroll Up */}
+                <div className="scroll-container h-full overflow-hidden relative">
+                  <div className="scroll-content scroll-column-up space-y-4">
+                    {[...allFeaturedListings, ...allFeaturedListings].sort(() => Math.random() - 0.5).map((listing, index) => (
+                      <Link
+                        key={`${listing.id}-col3-${index}`}
+                        href={`/products/${listing.id}`}
+                        className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                      >
+                        {listing.images && listing.images[0] ? (
+                          <img
+                            src={listing.images[0]}
+                            alt={listing.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <span className="text-2xl">📦</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
+                          <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
+                          <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Search Section */}
-      <section className="py-12 px-4 bg-gradient-to-b from-background to-gray-50 dark:to-gray-900/50 border-b border-gray-200 dark:border-gray-800">
+      {/* Search Input Section */}
+      <section className="py-12 px-4 bg-slate-50 dark:bg-slate-900/40 border-b">
         <div className="container mx-auto">
-          <div className="max-w-2xl mx-auto">
+          <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Search for items, categories, or sellers..."
-                className="w-full pl-12 pr-32 py-4 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-300 shadow-lg hover:shadow-xl"
+                placeholder="Search for products, categories, or locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-32 py-4 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-300 shadow-md hover:shadow-lg text-sm sm:text-base text-slate-800 dark:text-slate-100"
               />
-              <Button className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-700 hover:to-blue-600 text-white rounded-full px-6 shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]">
+              <Button 
+                type="submit" 
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6 shadow-md transition-all duration-200 h-10 font-bold"
+              >
                 Search
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       </section>
 
       {/* Recently Viewed Section */}
       {user && recentlyViewed.length > 0 && (
-        <section className="py-12 px-4 bg-gradient-to-b from-gray-50 to-white dark:from-gray-900/50 dark:to-gray-900">
+        <section className="py-12 px-4 bg-white dark:bg-slate-950">
           <div className="container mx-auto">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-3xl font-bold flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-blue-400 dark:to-purple-400">
-                <Clock className="h-8 w-8 text-indigo-500" />
-                Recently Viewed
-              </h2>
+            <div className="flex items-center gap-2 mb-8 border-b pb-3">
+              <Clock className="h-5 w-5 text-indigo-500" />
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
             </div>
-            <div className="flex gap-6 overflow-x-auto pb-4">
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
               {recentlyViewed.map((listing, index) => (
-                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-52 relative">
+                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-52 relative group">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 z-10 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm h-7 w-7 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-900 transition-all duration-200"
+                    className="absolute top-4 right-4 z-20 bg-white/95 dark:bg-slate-950/95 backdrop-blur h-6 w-6 rounded-full shadow-sm hover:scale-105 border transition-all"
                     onClick={() => handleRemoveFromRecentlyViewed(listing.id)}
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3.5 w-3.5 text-slate-500 hover:text-rose-500" />
                   </Button>
                   <ListingCard {...listing} />
                 </div>
@@ -314,35 +504,44 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Categories Section */}
-      <section className="py-16 px-4 bg-gradient-to-b from-white to-gray-50 dark:from-gray-900 dark:to-gray-900/50">
-        <div className="container mx-auto">
-          <h2 className="text-4xl font-bold mb-10 text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500 dark:from-blue-400 dark:to-purple-400">Browse Categories</h2>
+      {/* Categories Grid Section */}
+      <section ref={categoriesRef} className="py-16 px-4 bg-slate-55/20 dark:bg-slate-900/10">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
+            categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          }`}>
+            Browse Categories
+          </h2>
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
               {[...Array(6)].map((_, i) => (
-                <div key={i} className="bg-card border-2 border-gray-200 dark:border-gray-700 rounded-2xl p-6 text-center animate-pulse hover:shadow-lg transition-all duration-300">
-                  <div className="h-16 w-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-full mx-auto mb-3" />
-                  <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded w-3/4 mx-auto" />
-                </div>
+                <div key={i} className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 text-center animate-pulse h-36" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
-              {categories.map((category) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
+              {categories.map((category, index) => (
                 <Link
                   key={category.id}
                   href={`/browse?category=${category.id}`}
-                  className="group"
+                  className={`group transition-all duration-550 ${
+                    categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                  }`}
+                  style={{
+                    transitionDelay: `${index * 50}ms`,
+                  }}
                 >
-                  <Card className="hover:shadow-2xl hover:scale-105 transition-all duration-300 hover:border-indigo-500/50 border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 group">
-                    <CardContent className="p-6 text-center">
-                      <div className="relative mb-3">
-                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-500 rounded-full blur-lg opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                        <div className="relative text-5xl group-hover:scale-110 transition-transform duration-300 group-hover:rotate-6">{categoryIcons[category.name] || '📦'}</div>
+                  <Card className="hover:shadow-md hover:scale-[1.03] transition-all duration-300 border border-slate-200 hover:border-indigo-400 dark:border-slate-800 dark:hover:border-indigo-850 rounded-2xl bg-white dark:bg-slate-950">
+                    <CardContent className="p-5 text-center">
+                      <div className="text-4xl mb-2.5 transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300">
+                        {categoryIcons[category.name] || '📦'}
                       </div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{category.name}</h3>
-                      <p className="text-sm text-muted-foreground mt-1">{category.count || 0} items</p>
+                      <h3 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm sm:text-base">
+                        {category.name}
+                      </h3>
+                      <p className="text-xs text-muted-foreground mt-1 font-semibold">
+                        {category.count || 0} products
+                      </p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -352,50 +551,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Listings */}
-      <section className="py-12 px-4 bg-muted/50">
-        <div className="container mx-auto">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold">Featured Listings</h2>
-            <Button variant="outline" asChild>
-              <Link href="/browse">
-                View All
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* Features Section */}
-      <section className="py-12 px-4">
-        <div className="container mx-auto">
-          <h2 className="text-3xl font-bold mb-8 text-center">Why Choose SuriMart?</h2>
+      <section ref={featuresRef} className="py-16 px-4 bg-white dark:bg-slate-950">
+        <div className="container mx-auto max-w-5xl">
+          <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
+            featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          }`}>
+            Why Choose SuriMart?
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card>
-              <CardHeader>
-                <Shield className="h-12 w-12 text-primary mb-2" />
-                <CardTitle>Secure Transactions</CardTitle>
-                <CardDescription>
-                  Safe and secure payments with buyer protection
+            <Card className={`border border-slate-200 dark:border-slate-850 transition-all duration-700 hover:shadow-md ${
+              featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`} style={{ transitionDelay: '100ms' }}>
+              <CardHeader className="space-y-2.5">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Shield className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">Secure Transactions</CardTitle>
+                <CardDescription className="text-slate-550 dark:text-slate-400 leading-relaxed text-sm">
+                  Region-tailored safety tips and protected seller profiles prevent fraudulent deals.
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card>
-              <CardHeader>
-                <Users className="h-12 w-12 text-primary mb-2" />
-                <CardTitle>Verified Sellers</CardTitle>
-                <CardDescription>
-                  Only verified sellers can list items for sale
+
+            <Card className={`border border-slate-200 dark:border-slate-850 transition-all duration-700 hover:shadow-md ${
+              featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`} style={{ transitionDelay: '200ms' }}>
+              <CardHeader className="space-y-2.5">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <Users className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">Verified Sellers</CardTitle>
+                <CardDescription className="text-slate-550 dark:text-slate-400 leading-relaxed text-sm">
+                  Document verifications authenticate local sellers to build deep marketplace trust.
                 </CardDescription>
               </CardHeader>
             </Card>
-            <Card>
-              <CardHeader>
-                <TrendingUp className="h-12 w-12 text-primary mb-2" />
-                <CardTitle>Local Focus</CardTitle>
-                <CardDescription>
-                  Connect with buyers and sellers in your area
+
+            <Card className={`border border-slate-200 dark:border-slate-850 transition-all duration-700 hover:shadow-md ${
+              featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`} style={{ transitionDelay: '300ms' }}>
+              <CardHeader className="space-y-2.5">
+                <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                  <TrendingUp className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-lg font-bold">Local Community Focus</CardTitle>
+                <CardDescription className="text-slate-550 dark:text-slate-400 leading-relaxed text-sm">
+                  Connect quickly with active products right in your municipality for fast cash handovers.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -403,29 +605,29 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-4 bg-gradient-to-br from-indigo-600 via-blue-500 to-indigo-700 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 text-white relative overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 right-10 w-72 h-72 bg-white rounded-full blur-3xl animate-pulse" />
-          <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-300 rounded-full blur-3xl animate-pulse delay-1000" />
+      {/* Bottom CTA Banner */}
+      <section className="py-20 px-4 bg-gradient-to-br from-indigo-700 via-indigo-850 to-blue-900 text-white relative overflow-hidden">
+        {/* Glow backdrop elements */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none">
+          <div className="absolute top-10 right-10 w-96 h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse" />
         </div>
         
-        <div className="container mx-auto text-center relative z-10">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-4 animate-fade-in-up">
+        <div className="container mx-auto text-center relative z-10 max-w-2xl space-y-6">
+          <h2 className="text-4xl font-extrabold tracking-tight leading-tight text-white">
             Ready to Start Buying or Selling?
           </h2>
-          <p className="text-xl lg:text-2xl mb-8 opacity-90 animate-fade-in-up delay-200">
-            Join thousands of users already using SuriMart
+          <p className="text-lg text-indigo-100/90 max-w-lg mx-auto leading-relaxed">
+            Join thousands of users already trading and communication safely on SuriMart.
           </p>
-          <div className="flex gap-4 justify-center flex-wrap animate-fade-in-up delay-300">
+          <div className="flex gap-4 justify-center flex-wrap pt-2">
             <Button 
               size="lg" 
               asChild 
-              className="bg-white text-indigo-600 hover:bg-indigo-50 shadow-2xl hover:shadow-indigo-500/50 transition-all duration-200 hover:scale-[1.02] rounded-full px-8 font-semibold"
+              className="bg-white hover:bg-slate-50 text-indigo-700 shadow-xl rounded-full px-8 font-bold h-12"
             >
               <Link href="/register">
-                <Users className="mr-2 h-5 w-5" />
+                <Users className="mr-2 h-5 w-5 text-indigo-650" />
                 Create Account
               </Link>
             </Button>
@@ -433,11 +635,11 @@ export default function HomePage() {
               size="lg" 
               variant="outline" 
               asChild 
-              className="bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 hover:border-white/50 shadow-xl hover:shadow-white/20 transition-all duration-200 hover:scale-[1.02] rounded-full px-8 font-semibold"
+              className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/25 shadow-lg rounded-full px-8 font-bold h-12"
             >
               <Link href="/browse">
-                <ShoppingBag className="mr-2 h-5 w-5" />
-                Browse Products
+                <ShoppingBag className="mr-2 h-5 w-5 text-indigo-200" />
+                Explore Products
               </Link>
             </Button>
           </div>
