@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server"
 import ProfileProvider from "@/components/profile-provider"
 import { ThemeProvider } from "@/lib/theme-provider"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -49,8 +50,10 @@ export default async function RootLayout({
               </div>
             </div>
           </ErrorBoundary>
+          <Toaster />
         </ProfileProvider>
       </body>
     </html>
   )
 }
+

@@ -15,7 +15,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useCartStore } from '@/lib/store/auth'
 import { createClient } from '@/lib/supabase/client'
-import { User, LogOut, Settings, Bell, Check, ShoppingCart, X } from 'lucide-react'
+import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
+import { toast } from '@/hooks/use-toast'
 
 export function Header() {
   const router = useRouter()
@@ -24,6 +25,8 @@ export function Header() {
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
 
   const fetchNotifications = async () => {
     if (!user) return
@@ -65,12 +68,109 @@ export function Header() {
     }
   }
 
+  const handleNotificationClick = async (notification: any) => {
+    // Mark as read
+    if (!notification.is_read) {
+      try {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id)
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+        )
+      } catch (error) {
+        console.error('Error marking notification as read:', error)
+      }
+    }
+    // Navigate if there's a link
+    if (notification.link) {
+      router.push(notification.link)
+      setShowNotifications(false)
+    }
+  }
+
   useEffect(() => {
     if (user) {
       fetchNotifications()
       fetchCartCount()
     } else {
       setCartCount(0)
+    }
+  }, [user])
+
+  // Real-time subscription for new notifications
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel(`header-notifications:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
+  // Real-time subscription for new messages → show toast popup
+  useEffect(() => {
+    if (!user) return
+
+    const channel = supabase
+      .channel(`header-messages:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          const newMsg = payload.new as any
+          // Fetch sender profile for name
+          let senderName = 'Someone'
+          try {
+            const { data: senderProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', newMsg.sender_id)
+              .single()
+            if (senderProfile?.full_name) {
+              senderName = senderProfile.full_name
+            }
+          } catch (e) {
+            // fallback to "Someone"
+          }
+
+          const msgPreview = newMsg.content?.length > 60
+            ? newMsg.content.substring(0, 60) + '…'
+            : newMsg.content || 'Sent you a message'
+
+          toast({
+            title: `💬 New message from ${senderName}`,
+            description: msgPreview,
+            variant: 'default',
+            duration: 6000,
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [user])
 
@@ -112,9 +212,9 @@ export function Header() {
                     className="relative hover:bg-indigo-500/5 hover:scale-105 active:scale-95 transition-all duration-200 rounded-full h-9 w-9 text-slate-600 dark:text-slate-400 hover:text-indigo-650"
                   >
                     <Bell className="h-5 w-5" />
-                    {notifications.length > 0 && (
+                    {unreadCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-gradient-to-r from-red-500 to-orange-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center shadow-md">
-                        {notifications.length > 9 ? '9+' : notifications.length}
+                        {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}
                   </Button>
@@ -123,6 +223,11 @@ export function Header() {
                   <DropdownMenuLabel className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
                     <Bell className="h-3.5 w-3.5 text-indigo-500" />
                     Notifications
+                    {unreadCount > 0 && (
+                      <span className="ml-auto text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        {unreadCount} new
+                      </span>
+                    )}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="my-1.5" />
                   <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1">
@@ -132,16 +237,26 @@ export function Header() {
                       </div>
                     ) : (
                       notifications.map((notification) => (
-                        <div key={notification.id} className="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-indigo-500/5 transition-colors group relative">
-                          <Check className="h-4 w-4 mt-0.5 text-indigo-500 flex-shrink-0" />
-                          <div className="flex-1 cursor-pointer min-w-0" onClick={() => {
-                            if (notification.link) {
-                              router.push(notification.link)
-                              setShowNotifications(false)
-                            }
-                          }}>
-                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{notification.title || 'Notification'}</p>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal line-clamp-2">{notification.message || notification.content}</p>
+                        <div
+                          key={notification.id}
+                          className={`flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-indigo-500/5 transition-colors group relative cursor-pointer ${
+                            !notification.is_read ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''
+                          }`}
+                          onClick={() => handleNotificationClick(notification)}
+                        >
+                          <div className="relative flex-shrink-0 mt-0.5">
+                            <Check className={`h-4 w-4 ${!notification.is_read ? 'text-indigo-500' : 'text-slate-400'}`} />
+                            {!notification.is_read && (
+                              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-indigo-500 rounded-full" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-bold truncate ${!notification.is_read ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                              {notification.title || 'Notification'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal line-clamp-2">
+                              {notification.message || notification.content}
+                            </p>
                             <p className="text-[10px] text-slate-400 mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
                           </div>
                           <Button

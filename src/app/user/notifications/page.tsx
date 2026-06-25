@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
-import { Bell, Check } from 'lucide-react'
+import { Bell, Check, CheckCheck } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { user } = useAuthStore()
+  const router = useRouter()
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,7 +49,9 @@ export default function NotificationsPage() {
         .eq('id', id)
 
       if (error) throw error
-      fetchNotifications()
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      )
     } catch (error) {
       console.error('Error marking notification as read:', error)
     }
@@ -64,22 +68,44 @@ export default function NotificationsPage() {
         .eq('is_read', false)
 
       if (error) throw error
-      fetchNotifications()
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, is_read: true }))
+      )
     } catch (error) {
       console.error('Error marking all as read:', error)
     }
   }
+
+  const handleNotificationClick = async (notification: any) => {
+    // Mark as read if unread
+    if (!notification.is_read) {
+      await markAsRead(notification.id)
+    }
+    // Navigate to link if present
+    if (notification.link) {
+      router.push(notification.link)
+    }
+  }
+
+  const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground">Your recent activity</p>
+          <p className="text-muted-foreground">
+            Your recent activity
+            {unreadCount > 0 && (
+              <span className="ml-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                ({unreadCount} unread)
+              </span>
+            )}
+          </p>
         </div>
-        {notifications.some((n) => !n.is_read) && (
-          <Button onClick={markAllAsRead} variant="outline">
-            <Check className="mr-2 h-4 w-4" />
+        {unreadCount > 0 && (
+          <Button onClick={markAllAsRead} variant="outline" className="gap-2">
+            <CheckCheck className="h-4 w-4" />
             Mark All as Read
           </Button>
         )}
@@ -95,19 +121,29 @@ export default function NotificationsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {notifications.map((notification) => (
             <Card
               key={notification.id}
-              className={`hover:bg-muted/50 transition-colors ${
-                !notification.is_read ? 'border-primary' : ''
+              className={`transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 ${
+                !notification.is_read
+                  ? 'border-indigo-400 dark:border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/10'
+                  : 'hover:bg-muted/50'
               }`}
+              onClick={() => handleNotificationClick(notification)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
-                  <Bell className={`h-5 w-5 mt-1 ${!notification.is_read ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div className="relative">
+                    <Bell className={`h-5 w-5 mt-1 ${!notification.is_read ? 'text-indigo-500' : 'text-muted-foreground'}`} />
+                    {!notification.is_read && (
+                      <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-indigo-500 rounded-full border-2 border-white dark:border-slate-950" />
+                    )}
+                  </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold">{notification.title}</h3>
+                    <h3 className={`font-semibold ${!notification.is_read ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'}`}>
+                      {notification.title}
+                    </h3>
                     <p className="text-sm text-muted-foreground mt-1">
                       {notification.content}
                     </p>
@@ -119,8 +155,13 @@ export default function NotificationsPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => markAsRead(notification.id)}
+                          className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            markAsRead(notification.id)
+                          }}
                         >
+                          <Check className="h-3.5 w-3.5 mr-1" />
                           Mark as Read
                         </Button>
                       )}
