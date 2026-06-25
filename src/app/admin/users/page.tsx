@@ -82,7 +82,7 @@ export default function AdminUsersPage() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u))
       
       if (selectedUser?.id === userId) {
-        setSelectedUser(prev => ({ ...prev, ...updates }))
+        setSelectedUser((prev: any) => ({ ...prev, ...updates }))
       }
     } catch (error) {
       console.error('Error updating verification status:', error)
