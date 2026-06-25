@@ -161,11 +161,11 @@ export default function DashboardPage() {
       {/* Modern Metrics Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Metric 1: My Products */}
-        <Card className="group relative overflow-hidden hover:shadow-xl hover:shadow-indigo-500/5 dark:hover:shadow-indigo-500/10 transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">My Products</CardTitle>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 border border-indigo-100/50 dark:border-indigo-900/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950 border border-indigo-100/50 dark:border-indigo-900/50 flex items-center justify-center">
               <ShoppingBag className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             </div>
           </CardHeader>
@@ -183,11 +183,11 @@ export default function DashboardPage() {
         </Card>
 
         {/* Metric 2: Total Views */}
-        <Card className="group relative overflow-hidden hover:shadow-xl hover:shadow-blue-500/5 dark:hover:shadow-blue-500/10 transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Views</CardTitle>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-100/50 dark:border-blue-900/50 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-100/50 dark:border-blue-900/50 flex items-center justify-center">
               <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
           </CardHeader>
@@ -202,34 +202,34 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Metric 3: Total Revenue */}
-        <Card className="group relative overflow-hidden hover:shadow-xl hover:shadow-emerald-500/5 dark:hover:shadow-emerald-500/10 transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 group-hover:w-1.5 transition-all" />
+        {/* Metric 3: Active Sales */}
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Earnings</CardTitle>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-100/50 dark:border-emerald-900/50 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Deals</CardTitle>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-100/50 dark:border-emerald-900/50 flex items-center justify-center">
+              <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
-              ₱{loading ? '...' : stats.totalRevenue.toLocaleString()}
+              {loading ? '...' : stats.activeSales}
             </div>
             <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
-              <span>{stats.activeSales} sales in progress</span>
+              <span>Ongoing seller actions</span>
               <Link href="/user/transactions" className="text-emerald-600 dark:text-emerald-400 flex items-center hover:underline">
-                Orders <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
+                View Deals <ArrowUpRight className="w-3.5 h-3.5 ml-0.5" />
               </Link>
             </div>
           </CardContent>
         </Card>
 
         {/* Metric 4: Unread Messages */}
-        <Card className="group relative overflow-hidden hover:shadow-xl hover:shadow-purple-500/5 dark:hover:shadow-purple-500/10 transition-all duration-300 hover:scale-[1.02] border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
-          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500 group-hover:w-1.5 transition-all" />
+        <Card className="relative overflow-hidden border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 rounded-2xl">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500" />
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Messages</CardTitle>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950 border border-purple-100/50 dark:border-purple-900/50 flex items-center justify-center group-hover:scale-110 transition-transform relative">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950 border border-purple-100/50 dark:border-purple-900/50 flex items-center justify-center relative">
               <MessageSquare className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               {stats.unreadMessages > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
