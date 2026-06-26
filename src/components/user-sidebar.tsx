@@ -49,6 +49,15 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
   useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  useEffect(() => {
     if (user) {
       fetchUnreadMessages()
     }
@@ -76,13 +85,21 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
 
   return (
     <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-35 transition-opacity duration-300"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      <div className="lg:hidden fixed top-3.5 left-4 z-50">
         <Button
           variant="outline"
           size="icon"
           onClick={() => setOpen(!isOpen)}
-          className="bg-indigo-600 text-white border-0 shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full"
+          className="bg-indigo-600 text-white border-0 shadow-lg hover:shadow-indigo-500/30 transition-all duration-200 hover:scale-[1.02] rounded-full h-9 w-9"
         >
           {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
@@ -101,7 +118,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-center p-4 border-b border-white/10">
+          <div className="flex items-center justify-center p-4 border-b border-white/10 h-16">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden shadow-lg shadow-black/20 hover:shadow-indigo-400/30 transition-all duration-200 hover:scale-[1.05] bg-white/10 border border-white/20 backdrop-blur-sm">
                 <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="w-full h-full object-contain" />
@@ -125,6 +142,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group',
                     isActive

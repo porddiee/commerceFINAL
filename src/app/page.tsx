@@ -297,7 +297,7 @@ export default function HomePage() {
                   <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
                   <span className="animate-broken-lamp font-bold">Surigao Region Marketplace</span>
                 </div>
-                <h1 className="text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
+                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
                   <span className="animate-loop-welcome">Welcome</span>
                   <span className="animate-loop-to">to</span>
                   <span className="animate-loop-surimart inline-block">
@@ -334,7 +334,7 @@ export default function HomePage() {
               </div>
               
               {/* Marketplace stats */}
-              <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+              <div className="grid grid-cols-3 gap-3 sm:gap-6 pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
                 <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
                   <div className="text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.listings.toLocaleString()}+</div>
                   <div className="text-indigo-200/80 text-xs font-semibold uppercase tracking-wider mt-0.5">Active Products</div>
@@ -485,9 +485,9 @@ export default function HomePage() {
               <Clock className="h-5 w-5 text-indigo-500" />
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
             </div>
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-thin">
               {recentlyViewed.map((listing, index) => (
-                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-52 relative group">
+                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-32 sm:w-52 relative group">
                   <Button
                     variant="ghost"
                     size="icon"

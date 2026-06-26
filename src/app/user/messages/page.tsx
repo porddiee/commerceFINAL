@@ -55,10 +55,12 @@ export default function MessagesPage() {
     }
   }, [user, sellerId])
 
-  // Auto-select the most recent conversation after fetching
+  // Auto-select the most recent conversation after fetching (on desktop only)
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversation && !sellerId) {
-      setSelectedConversation(conversations[0])
+      if (typeof window !== 'undefined' && window.innerWidth >= 768) {
+        setSelectedConversation(conversations[0])
+      }
     }
   }, [conversations, selectedConversation, sellerId])
 
@@ -438,7 +440,7 @@ export default function MessagesPage() {
         ) : (
           <>
             {/* Conversations Sidebar List */}
-            <div className="w-full md:w-80 border-r border-slate-200 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/10 overflow-hidden flex flex-col shrink-0">
+            <div className={`w-full md:w-80 border-r border-slate-200 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/10 overflow-hidden flex flex-col shrink-0 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
               <div className="p-4 border-b border-slate-200 dark:border-slate-800/85 space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
@@ -514,12 +516,22 @@ export default function MessagesPage() {
             </div>
 
             {/* Conversation Window */}
-            <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950">
+            <div className={`flex-1 flex flex-col min-w-0 bg-white dark:bg-slate-950 ${selectedConversation ? 'flex' : 'hidden md:flex'}`}>
               {selectedConversation ? (
                 <>
                   {/* Chat header */}
                   <div className="p-4 border-b border-slate-200 dark:border-slate-800/85 flex items-center justify-between bg-slate-50/30 dark:bg-slate-900/5 z-10">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                      {/* Back button on mobile */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSelectedConversation(null)}
+                        className="md:hidden hover:bg-slate-100 dark:hover:bg-slate-850 h-8 w-8 rounded-full flex-shrink-0"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </Button>
+                      
                       <Avatar className="h-10 w-10 ring-2 ring-indigo-500/10">
                         <AvatarImage src={selectedConversation.profile?.avatar_url} />
                         <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-blue-500 text-white font-bold">
