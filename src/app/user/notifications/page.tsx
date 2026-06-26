@@ -90,21 +90,21 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter(n => !n.is_read).length
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Notifications</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-3xl font-bold">Notifications</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Your recent activity
             {unreadCount > 0 && (
-              <span className="ml-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              <span className="ml-2 text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400">
                 ({unreadCount} unread)
               </span>
             )}
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button onClick={markAllAsRead} variant="outline" className="gap-2">
+          <Button onClick={markAllAsRead} variant="outline" className="gap-2 text-xs sm:text-sm">
             <CheckCheck className="h-4 w-4" />
             Mark All as Read
           </Button>

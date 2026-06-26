@@ -464,16 +464,16 @@ export default function BrowsePage() {
       )}
       
       {/* Page Header */}
-      <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
+      <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
         <div className="absolute top-0 right-0 w-56 h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-            <Search className="w-5 h-5 text-white" />
+        <div className="relative z-10 flex items-center gap-3 sm:gap-4">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </div>
           <div>
-            <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Marketplace</p>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">Browse Products</h1>
-            <p className="text-xs font-semibold text-indigo-200/80 mt-0.5">Find the perfect item from our curated collection of verified products</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Marketplace</p>
+            <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">Browse Products</h1>
+            <p className="text-[10px] sm:text-xs font-semibold text-indigo-200/80 mt-0.5">Find the perfect item from our curated collection of verified products</p>
           </div>
         </div>
       </div>
@@ -763,15 +763,15 @@ export default function BrowsePage() {
 
       {/* Products Grid */}
       <div className="space-y-4">
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <span>All Products</span>
-          <span className="text-xs font-semibold bg-indigo-50 text-indigo-650 px-2 py-0.5 rounded-full dark:bg-indigo-950/30 dark:text-indigo-400">
+          <span className="text-[10px] sm:text-xs font-semibold bg-indigo-50 text-indigo-650 px-2 py-0.5 rounded-full dark:bg-indigo-950/30 dark:text-indigo-400">
             {listings.length} items
           </span>
         </h2>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[...Array(8)].map((_, i) => (
               <ListingCardSkeleton key={i} />
             ))}
@@ -787,7 +787,7 @@ export default function BrowsePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {listings.map((listing) => (
               <ListingCard 
                 key={listing.id}

@@ -116,7 +116,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full pt-16">
           {/* Header */}
           <div className="flex items-center justify-center p-4 border-b border-white/10 h-16">
             <div className="flex items-center gap-2 overflow-hidden">
