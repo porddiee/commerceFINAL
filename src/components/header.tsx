@@ -181,7 +181,7 @@ export function Header() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-45 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md shadow-sm transition-all duration-200">
+    <header className="fixed top-0 left-0 right-0 z-55 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md shadow-sm transition-all duration-200">
       <div className="container flex h-16 items-center justify-end px-4 lg:px-8">
         <div className="flex items-center gap-2.5">
           {user ? (

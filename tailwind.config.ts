@@ -58,6 +58,12 @@ const config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      zIndex: {
+        '35': '35',
+        '45': '45',
+        '55': '55',
+        '60': '60',
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

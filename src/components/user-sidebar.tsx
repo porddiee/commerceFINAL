@@ -94,7 +94,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
       )}
 
       {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-3.5 left-4 z-50">
+      <div className="lg:hidden fixed top-3.5 left-4 z-60">
         <Button
           variant="outline"
           size="icon"
