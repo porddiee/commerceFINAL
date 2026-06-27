@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, ShoppingBag, Users, Shield, ArrowRight, TrendingUp, Clock, X } from 'lucide-react'
+import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import ListingCard from '@/components/listing-card'
@@ -29,11 +29,34 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [allFeaturedListings, setAllFeaturedListings] = useState<any[]>([])
   const [stats, setStats] = useState({ listings: 0, users: 0 })
+  const [displayStats, setDisplayStats] = useState({ listings: 0, users: 0 })
   const [searchQuery, setSearchQuery] = useState('')
+  const [heroInView, setHeroInView] = useState(false)
+  const [heroPointer, setHeroPointer] = useState({ x: 50, y: 38 })
+  const [cursorTrail, setCursorTrail] = useState<Array<{ x: number; y: number; id: number }>>([])
+  const trailIdRef = useRef(0)
+  
+  // Split featured listings into 3 groups for different columns
+  const column1Listings = useMemo(() => {
+    const mid = Math.floor(allFeaturedListings.length / 3)
+    return [...allFeaturedListings.slice(0, mid), ...allFeaturedListings.slice(0, mid)]
+  }, [allFeaturedListings])
+  
+  const column2Listings = useMemo(() => {
+    const mid = Math.floor(allFeaturedListings.length / 3)
+    const end = Math.floor((allFeaturedListings.length / 3) * 2)
+    return [...allFeaturedListings.slice(mid, end), ...allFeaturedListings.slice(mid, end)]
+  }, [allFeaturedListings])
+  
+  const column3Listings = useMemo(() => {
+    const start = Math.floor((allFeaturedListings.length / 3) * 2)
+    return [...allFeaturedListings.slice(start), ...allFeaturedListings.slice(start)]
+  }, [allFeaturedListings])
   
   // Intersection observer animations
   const [categoriesInView, setCategoriesInView] = useState(false)
   const [featuresInView, setFeaturesInView] = useState(false)
+  const heroRef = useRef<HTMLElement>(null)
   const categoriesRef = useRef<HTMLDivElement>(null)
   const featuresRef = useRef<HTMLDivElement>(null)
 
@@ -45,6 +68,78 @@ export default function HomePage() {
       fetchRecentlyViewed()
     }
   }, [user])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setHeroInView(entry.isIntersecting)
+      },
+      { threshold: 0.35 }
+    )
+
+    if (heroRef.current) {
+      observer.observe(heroRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!heroInView) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!heroRef.current) return
+      const rect = heroRef.current.getBoundingClientRect()
+      const x = ((e.clientX - rect.left) / rect.width) * 100
+      const y = ((e.clientY - rect.top) / rect.height) * 100
+      setHeroPointer({ x, y })
+      
+      // Add to cursor trail
+      const id = trailIdRef.current++
+      setCursorTrail(prev => [...prev, { x, y, id }])
+      
+      // Remove trail point after animation
+      setTimeout(() => {
+        setCursorTrail(prev => prev.filter(point => point.id !== id))
+      }, 1000)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [heroInView])
+
+  useEffect(() => {
+    if (!heroInView) return
+
+    const duration = 1200
+    const startedAt = performance.now()
+    let frame = 0
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - startedAt) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+
+      setDisplayStats({
+        listings: Math.round(stats.listings * eased),
+        users: Math.round(stats.users * eased)
+      })
+
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick)
+      }
+    }
+
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+  }, [heroInView, stats.listings, stats.users])
+
+  const handleHeroPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect()
+    setHeroPointer({
+      x: ((event.clientX - bounds.left) / bounds.width) * 100,
+      y: ((event.clientY - bounds.top) / bounds.height) * 100
+    })
+  }
 
   const fetchFeaturedListings = async () => {
     try {
@@ -227,6 +322,40 @@ export default function HomePage() {
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        @keyframes heroTide {
+          0% { transform: translate3d(-2%, -1%, 0) scale(1); }
+          50% { transform: translate3d(2%, 1.5%, 0) scale(1.03); }
+          100% { transform: translate3d(-2%, -1%, 0) scale(1); }
+        }
+        @keyframes wovenDrift {
+          0% { transform: translate3d(0, 0, 0); opacity: 0.32; }
+          50% { transform: translate3d(-24px, 18px, 0); opacity: 0.5; }
+          100% { transform: translate3d(0, 0, 0); opacity: 0.32; }
+        }
+        @keyframes wordLift {
+          0% {
+            opacity: 0;
+            transform: translate3d(0, 26px, 0) rotateX(34deg);
+            filter: blur(8px);
+          }
+          100% {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) rotateX(0deg);
+            filter: blur(0);
+          }
+        }
+        @keyframes marketPulse {
+          0%, 100% {
+            transform: translate3d(0, 0, 0) rotate(-1.5deg);
+          }
+          50% {
+            transform: translate3d(0, -8px, 0) rotate(1.5deg);
+          }
+        }
+        @keyframes scrollCue {
+          0%, 100% { transform: translateY(0); opacity: 0.65; }
+          50% { transform: translateY(8px); opacity: 1; }
+        }
         @keyframes brokenLamp {
           0%, 18%, 22%, 25%, 53%, 57%, 100% {
             opacity: 1;
@@ -257,6 +386,85 @@ export default function HomePage() {
           91.67% { opacity: 1; }
           100% { opacity: 0; }
         }
+        @keyframes floatIcon1 {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+          25% { transform: translate3d(15px, -20px, 0) rotate(5deg); }
+          50% { transform: translate3d(30px, 0, 0) rotate(0deg); }
+          75% { transform: translate3d(15px, 20px, 0) rotate(-5deg); }
+        }
+        @keyframes floatIcon2 {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+          33% { transform: translate3d(-20px, 15px, 0) rotate(-8deg); }
+          66% { transform: translate3d(10px, -25px, 0) rotate(6deg); }
+        }
+        @keyframes floatIcon3 {
+          0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+          50% { transform: translate3d(-25px, -15px, 0) scale(1.05); }
+        }
+        @keyframes floatIcon4 {
+          0%, 100% { transform: translate3d(0, 0, 0); }
+          25% { transform: translate3d(20px, 25px, 0); }
+          50% { transform: translate3d(-10px, 15px, 0); }
+          75% { transform: translate3d(15px, -20px, 0); }
+        }
+        @keyframes floatIcon5 {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+          50% { transform: translate3d(-30px, 20px, 0) rotate(10deg); }
+        }
+        @keyframes badgeWaveLeft {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          25% { transform: translateY(-3px) rotate(-1deg); }
+          50% { transform: translateY(0) rotate(0deg); }
+          75% { transform: translateY(-1px) rotate(0.5deg); }
+        }
+        @keyframes badgeWaveRight {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          25% { transform: translateY(-1px) rotate(0.5deg); }
+          50% { transform: translateY(0) rotate(0deg); }
+          75% { transform: translateY(-3px) rotate(-1deg); }
+        }
+        @keyframes mouseGlow {
+          0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes trailFade {
+          0% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+          100% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+        }
+        .animate-float-icon-1 {
+          animation: floatIcon1 8s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-float-icon-2 {
+          animation: floatIcon2 10s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-float-icon-3 {
+          animation: floatIcon3 12s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-float-icon-4 {
+          animation: floatIcon4 9s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-float-icon-5 {
+          animation: floatIcon5 11s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-badge-wave-left {
+          animation: badgeWaveLeft 3s ease-in-out infinite;
+          will-change: transform;
+        }
+        .animate-badge-wave-right {
+          animation: badgeWaveRight 3s ease-in-out infinite 0.15s;
+          will-change: transform;
+        }
+        .mouse-glow {
+          animation: mouseGlow 0.3s ease-out forwards;
+        }
+        .trail-fade {
+          animation: trailFade 1s ease-out forwards;
+        }
         .animate-fade-in-up {
           animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
@@ -266,6 +474,57 @@ export default function HomePage() {
         .animate-bg-pan {
           background-size: 200% 200%;
           animation: bgPan 4s ease infinite;
+        }
+        .hero-tide {
+          animation: heroTide 16s ease-in-out infinite;
+          will-change: transform;
+        }
+        .hero-woven-drift {
+          animation: wovenDrift 22s ease-in-out infinite;
+          will-change: transform, opacity;
+        }
+        .hero-word {
+          animation: wordLift 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+          transform-origin: bottom left;
+        }
+        .hero-market-chip {
+          animation: marketPulse 6s ease-in-out infinite;
+          will-change: transform;
+        }
+        .hero-scroll-cue {
+          animation: scrollCue 1.8s ease-in-out infinite;
+          will-change: transform, opacity;
+        }
+        .hero-magnetic {
+          position: relative;
+          overflow: hidden;
+          isolation: isolate;
+        }
+        .hero-magnetic::after {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          background: radial-gradient(circle at 35% 0%, rgba(255,255,255,0.45), transparent 34%);
+          opacity: 0;
+          transform: translateY(12px);
+          transition: opacity 300ms ease, transform 300ms ease;
+          pointer-events: none;
+          z-index: -1;
+        }
+        .hero-magnetic:hover::after {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .hero-product-stage {
+          transform-style: preserve-3d;
+          perspective: 1200px;
+        }
+        .hero-product-card {
+          transform: translateZ(0) rotateX(0deg) rotateY(0deg);
+          will-change: transform;
+        }
+        .hero-product-card:hover {
+          transform: translateZ(24px) rotateX(3deg) rotateY(-4deg) scale(1.045);
         }
         .animate-broken-lamp {
           animation: brokenLamp 3.5s infinite;
@@ -281,11 +540,51 @@ export default function HomePage() {
         }
       `}} />
       {/* Hero Showcase Section */}
-      <section className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-900 text-white py-12 sm:py-16 px-4 relative overflow-hidden min-h-[500px] sm:min-h-[600px] flex items-center shadow-xl">
+      <section 
+        ref={heroRef}
+        className="bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-950 text-white py-12 sm:py-16 px-4 relative overflow-hidden min-h-[500px] sm:min-h-[600px] flex items-center shadow-xl"
+        onPointerMove={handleHeroPointerMove}
+      >
         {/* Glow backdrop elements */}
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-10 left-10 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
           <div className="absolute bottom-10 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
+        </div>
+        
+        {/* Mouse cursor trail effect */}
+        {cursorTrail.map((point) => (
+          <div
+            key={point.id}
+            className="absolute w-6 h-6 rounded-full blur-x.2 pointer-events-none trail-fade"
+            style={{
+              left: `${point.x}%`,
+              top: `${point.y}%`,
+              background: `linear-gradient(135deg, rgba(59, 130, 246, 2), rgba(147, 197, 253, 0.7), rgba(255, 255, 255, 0.45))`
+            }}
+          />
+        ))}
+        
+        {/* Floating e-commerce icons */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/* Scattered icons across the entire background */}
+          <ShoppingBag className="absolute top-[8%] left-[12%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-1" />
+          <ShoppingCart className="absolute top-[15%] right-[25%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-2" />
+          <Package className="absolute top-[35%] left-[8%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-3" />
+          <Store className="absolute top-[45%] right-[15%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-4" />
+          <Truck className="absolute bottom-[35%] left-[20%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-5" />
+          <CreditCard className="absolute bottom-[25%] right-[22%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-1" style={{ animationDelay: '2s' }} />
+          <Gift className="absolute top-[65%] left-[35%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-2" style={{ animationDelay: '3s' }} />
+          <ShoppingBag className="absolute top-[20%] left-[40%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '4s' }} />
+          <Store className="absolute bottom-[15%] left-[45%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-4" style={{ animationDelay: '5s' }} />
+          <Gift className="absolute top-[75%] right-[35%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-2" style={{ animationDelay: '6s' }} />
+          <CreditCard className="absolute top-[30%] right-[40%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '7s' }} />
+          <Package className="absolute bottom-[45%] left-[55%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-3" style={{ animationDelay: '1.5s' }} />
+          <ShoppingCart className="absolute top-[55%] right-[50%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-2" style={{ animationDelay: '2.5s' }} />
+          <Truck className="absolute top-[40%] left-[60%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-5" style={{ animationDelay: '3.5s' }} />
+          <ShoppingBag className="absolute bottom-[20%] right-[60%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '4.5s' }} />
+          {/* Additional icons on upper middle */}
+          <ShoppingCart className="absolute top-[12%] left-[45%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-2" style={{ animationDelay: '0.5s' }} />
+          <Package className="absolute top-[18%] right-[45%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-3" style={{ animationDelay: '1s' }} />
         </div>
         
         <div className="container mx-auto relative z-10">
@@ -293,9 +592,15 @@ export default function HomePage() {
             {/* Left Side: Content & Actions */}
             <div className="space-y-6 sm:space-y-8 text-left">
               <div className="space-y-2.5 sm:space-y-3.5">
-                <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10 animate-fade-in-left hover:scale-[1.03] transition-transform cursor-default">
-                  <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-300 animate-pulse" />
-                  <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">Surigao Region Marketplace</span>
+                <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10 hover:scale-[1.03] transition-transform cursor-default overflow-hidden relative">
+                  <div className="absolute inset-0 flex">
+                    <div className="flex-1 animate-badge-wave-left" />
+                    <div className="flex-1 animate-badge-wave-right" />
+                  </div>
+                  <div className="relative flex items-center gap-2">
+                    <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-300 animate-pulse" />
+                    <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">Surigao Region Marketplace</span>
+                  </div>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
                   <span className="animate-loop-welcome">Welcome</span>
@@ -364,7 +669,7 @@ export default function HomePage() {
                 {/* Column 1 - Scroll Up */}
                 <div className="scroll-container h-full overflow-hidden relative">
                   <div className="scroll-content scroll-column-up space-y-4">
-                    {[...allFeaturedListings, ...allFeaturedListings].map((listing, index) => (
+                    {column1Listings.map((listing, index) => (
                       <Link
                         key={`${listing.id}-col1-${index}`}
                         href={`/products/${listing.id}`}
@@ -393,7 +698,7 @@ export default function HomePage() {
                 {/* Column 2 - Scroll Down */}
                 <div className="scroll-container h-full overflow-hidden relative">
                   <div className="scroll-content scroll-column-down space-y-4">
-                    {[...allFeaturedListings, ...allFeaturedListings].reverse().map((listing, index) => (
+                    {column2Listings.map((listing, index) => (
                       <Link
                         key={`${listing.id}-col2-${index}`}
                         href={`/products/${listing.id}`}
@@ -422,7 +727,7 @@ export default function HomePage() {
                 {/* Column 3 - Scroll Up */}
                 <div className="scroll-container h-full overflow-hidden relative">
                   <div className="scroll-content scroll-column-up space-y-4">
-                    {[...allFeaturedListings, ...allFeaturedListings].sort(() => Math.random() - 0.5).map((listing, index) => (
+                    {column3Listings.map((listing, index) => (
                       <Link
                         key={`${listing.id}-col3-${index}`}
                         href={`/products/${listing.id}`}

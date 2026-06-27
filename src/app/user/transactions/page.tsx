@@ -288,28 +288,28 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* Page Header */}
-      <div className="relative overflow-hidden p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
-        <div className="absolute top-0 right-0 w-56 h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-              <Package className="w-5 h-5 text-white" />
+      <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
+        <div className="absolute top-0 right-0 w-40 sm:w-56 h-40 sm:h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <p className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Order History</p>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight leading-tight">My Transactions</h1>
-              <p className="text-xs font-semibold text-indigo-200/80 mt-0.5">Track, manage, and review your purchases and shop sales.</p>
+              <p className="text-[9px] sm:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Order History</p>
+              <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">My Transactions</h1>
+              <p className="text-[10px] sm:text-xs font-semibold text-indigo-200/80 mt-0.5">Track, manage, and review your purchases and shop sales.</p>
             </div>
           </div>
           <Button
             onClick={fetchTransactions}
             variant="ghost"
             size="sm"
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl h-10 px-4 transition-all"
+            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm transition-all"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             Refresh
           </Button>
         </div>
