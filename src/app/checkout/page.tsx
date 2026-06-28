@@ -225,35 +225,6 @@ export default function CheckoutPage() {
               notification_link: '/user/transactions',
             })
           }
-
-          // Reduce quantity by 1
-          const currentQuantity = item.quantity || 1
-          const newQuantity = currentQuantity - 1
-
-          if (newQuantity <= 0) {
-            // Mark listing as sold (out of stock)
-            await supabase
-              .from('listings')
-              .update({ quantity: 0, status: 'sold' })
-              .eq('id', item.id)
-
-            // Notify seller that product is out of stock
-            if (itemSeller) {
-              await supabase.rpc('create_notification', {
-                recipient_id: itemSeller.id,
-                notification_type: 'system',
-                notification_title: 'Product Out of Stock',
-                notification_content: `Your product "${item.title}" is now out of stock and has been marked as sold.`,
-                notification_link: '/user/products',
-              })
-            }
-          } else {
-            // Decrement quantity
-            await supabase
-              .from('listings')
-              .update({ quantity: newQuantity })
-              .eq('id', item.id)
-          }
         }
       }
 

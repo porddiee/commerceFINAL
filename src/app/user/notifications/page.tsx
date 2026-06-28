@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
-import { Bell, Check, CheckCheck } from 'lucide-react'
+import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { user } = useAuthStore()
@@ -76,6 +76,23 @@ export default function NotificationsPage() {
     }
   }
 
+  const clearAllNotifications = async () => {
+    if (!user) return
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (error) throw error
+      setNotifications([])
+    } catch (error) {
+      console.error('Error clearing notifications:', error)
+      alert('Failed to clear notifications')
+    }
+  }
+
   const handleNotificationClick = async (notification: any) => {
     // Mark as read if unread
     if (!notification.is_read) {
@@ -104,9 +121,21 @@ export default function NotificationsPage() {
           </p>
         </div>
         {unreadCount > 0 && (
-          <Button onClick={markAllAsRead} variant="outline" className="gap-2 text-xs sm:text-sm">
-            <CheckCheck className="h-4 w-4" />
-            Mark All as Read
+          <div className="flex gap-2">
+            <Button onClick={markAllAsRead} variant="outline" className="gap-2 text-xs sm:text-sm">
+              <CheckCheck className="h-4 w-4" />
+              Mark All as Read
+            </Button>
+            <Button onClick={clearAllNotifications} variant="outline" className="gap-2 text-xs sm:text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20">
+              <Trash2 className="h-4 w-4" />
+              Clear All
+            </Button>
+          </div>
+        )}
+        {unreadCount === 0 && notifications.length > 0 && (
+          <Button onClick={clearAllNotifications} variant="outline" className="gap-2 text-xs sm:text-sm text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20">
+            <Trash2 className="h-4 w-4" />
+            Clear All
           </Button>
         )}
       </div>

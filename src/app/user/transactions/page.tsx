@@ -135,6 +135,47 @@ export default function TransactionsPage() {
 
       if (updateError) throw updateError
 
+      // Deduct quantity when order is delivered
+      if (newStatus === 'delivered') {
+        try {
+          const { data: listingData } = await supabase
+            .from('listings')
+            .select('quantity')
+            .eq('id', order.listing_id)
+            .single()
+
+          if (listingData) {
+            const currentQuantity = listingData.quantity || 1
+            const newQuantity = currentQuantity - 1
+
+            if (newQuantity <= 0) {
+              // Mark listing as sold (out of stock)
+              await supabase
+                .from('listings')
+                .update({ quantity: 0, status: 'sold' })
+                .eq('id', order.listing_id)
+
+              // Notify seller that product is out of stock
+              await supabase.rpc('create_notification', {
+                recipient_id: order.seller_id,
+                notification_type: 'system',
+                notification_title: 'Product Out of Stock',
+                notification_content: `Your product "${order.listings?.title}" is now out of stock and has been marked as sold.`,
+                notification_link: '/user/products',
+              })
+            } else {
+              // Decrement quantity
+              await supabase
+                .from('listings')
+                .update({ quantity: newQuantity })
+                .eq('id', order.listing_id)
+            }
+          }
+        } catch (err) {
+          console.error('Error updating quantity:', err)
+        }
+      }
+
       // Send notification to buyer
       let notificationTitle = ''
       let notificationContent = ''

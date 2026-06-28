@@ -96,6 +96,15 @@ export default function BrowsePage() {
   useEffect(() => {
     fetchListings()
   }, [category, condition, sortBy, priceRange, datePosted])
+  
+  // Update category from URL when it changes
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const urlCategory = urlParams.get('category')
+    if (urlCategory && urlCategory !== category) {
+      setCategory(urlCategory)
+    }
+  }, [])
 
   const fetchCategories = async () => {
     const { data, error } = await supabase.from('categories').select('*').order('name')

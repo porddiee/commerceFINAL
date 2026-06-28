@@ -92,6 +92,20 @@ export default function ReviewPage() {
         throw error
       }
 
+      // Create notification for the seller
+      const { error: notificationError } = await supabase.from('notifications').insert({
+        user_id: order.seller_id,
+        title: 'New Review Received',
+        content: `You received a ${rating}-star review for "${order.listings?.title}".`,
+        link: '/user/reviews',
+        is_read: false,
+      })
+
+      if (notificationError) {
+        console.error('Notification error:', notificationError)
+        // Don't throw error - review was submitted successfully
+      }
+
       router.push('/user/transactions')
     } catch (error) {
       console.error('Error submitting review:', error)

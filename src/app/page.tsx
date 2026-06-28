@@ -5,18 +5,32 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift } from 'lucide-react'
+import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import ListingCard from '@/components/listing-card'
 
-const categoryIcons: Record<string, string> = {
-  'Electronics': '💻',
-  'Fashion': '👕',
-  'Home & Garden': '🏠',
-  'Vehicles': '🚗',
-  'Sports & Hobbies': '⚽',
-  'Books & Media': '📚',
+const categoryIcons: Record<string, any> = {
+  'electronics': Laptop,
+  'fashion': Shirt,
+  'home & garden': Home,
+  'home': Home,
+  'vehicles': Car,
+  'sports & hobbies': Trophy,
+  'sports': Trophy,
+  'books & media': Book,
+  'books': Book,
+  'baby & kids': Baby,
+  'baby': Baby,
+  'business & industrial': Briefcase,
+  'business': Briefcase,
+  'foods': Utensils,
+  'food': Utensils,
+  'health & beauty': Heart,
+  'health': Heart,
+  'other': MoreHorizontal,
+  'pets': PawPrint,
+  'pet': PawPrint,
 }
 
 export default function HomePage() {
@@ -27,6 +41,12 @@ export default function HomePage() {
   const [categories, setCategories] = useState<any[]>([])
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [showCinematicIntro, setShowCinematicIntro] = useState(false)
+  const [cinematicStage, setCinematicStage] = useState(0)
+  const [isClient, setIsClient] = useState(false)
+  const [showLoadingSpinner, setShowLoadingSpinner] = useState(false)
+  const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)
+  const [categoryProducts, setCategoryProducts] = useState<Record<string, any[]>>({})
   const [allFeaturedListings, setAllFeaturedListings] = useState<any[]>([])
   const [stats, setStats] = useState({ listings: 0, users: 0 })
   const [displayStats, setDisplayStats] = useState({ listings: 0, users: 0 })
@@ -35,6 +55,12 @@ export default function HomePage() {
   const [heroPointer, setHeroPointer] = useState({ x: 50, y: 38 })
   const [cursorTrail, setCursorTrail] = useState<Array<{ x: number; y: number; id: number }>>([])
   const trailIdRef = useRef(0)
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [buttonSwap, setButtonSwap] = useState(false)
   
   // Split featured listings into 3 groups for different columns
   const column1Listings = useMemo(() => {
@@ -68,6 +94,150 @@ export default function HomePage() {
       fetchRecentlyViewed()
     }
   }, [user])
+  
+  // Button swap animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setButtonSwap(prev => !prev)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [])
+  
+  // Search suggestions
+  useEffect(() => {
+    const fetchSearchSuggestions = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchSuggestions([])
+        setShowSuggestions(false)
+        return
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('listings')
+          .select('id, title, price')
+          .ilike('title', `%${searchQuery.trim()}%`)
+          .eq('status', 'active')
+          .limit(5)
+        
+        if (error) throw error
+        setSearchSuggestions(data || [])
+        setShowSuggestions(true)
+      } catch (error) {
+        console.error('Error fetching search suggestions:', error)
+        setSearchSuggestions([])
+      }
+    }
+    
+    const debounceTimer = setTimeout(fetchSearchSuggestions, 300)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+  
+  // Client-side mount check
+  useEffect(() => {
+    setIsClient(true)
+    
+    // Use Navigation Timing API to detect navigation type
+    const navType = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+    console.log('Navigation type:', navType?.type)
+    
+    if (navType?.type === 'reload') {
+      // This is a reload - clear sessionStorage so intro plays
+      console.log('Reload detected - clearing sessionStorage')
+      sessionStorage.removeItem('hasSeenCinematicIntro')
+      localStorage.removeItem('introLastShown')
+    } else if (navType?.type === 'navigate') {
+      // This is navigation (could be back/forward or fresh visit)
+      // Check referrer to distinguish
+      const referrer = document.referrer
+      const currentOrigin = window.location.origin
+      
+      if (referrer && referrer.startsWith(currentOrigin)) {
+        // Same-origin referrer = navigation between pages
+        console.log('Same-origin navigation - keeping sessionStorage')
+      } else {
+        // Different/no referrer = fresh visit
+        console.log('Fresh visit - clearing sessionStorage')
+        sessionStorage.removeItem('hasSeenCinematicIntro')
+        localStorage.removeItem('introLastShown')
+      }
+    }
+  }, [])
+  
+  // Cinematic intro animation (only on client and first visit)
+  useEffect(() => {
+    if (!isClient) return
+    
+    // Check if intro was already shown in this session
+    const hasSeenIntro = sessionStorage.getItem('hasSeenCinematicIntro')
+    
+    if (hasSeenIntro) {
+      // Don't show intro if already seen
+      return
+    }
+    
+    setShowCinematicIntro(true)
+    
+    const stage1 = setTimeout(() => setCinematicStage(1), 2500) // Background gradient fades in
+    const stage2 = setTimeout(() => setCinematicStage(2), 5000) // Logo reveal with scale
+    const stage3 = setTimeout(() => setCinematicStage(3), 7000) // Tagline slide up
+    const stage4 = setTimeout(() => setCinematicStage(4), 8500) // First word: Marketplace
+    const stage5 = setTimeout(() => setCinematicStage(5), 9500) // Second word: Community
+    const stage6 = setTimeout(() => setCinematicStage(6), 10500) // Third word: Connection
+    const stage7 = setTimeout(() => setCinematicStage(7), 11500) // Decorative elements
+    const stage8 = setTimeout(() => setCinematicStage(8), 12500) // Letterbox collapse
+    const stage9 = setTimeout(() => {
+      setShowCinematicIntro(false)
+      setShowLoadingSpinner(true)
+    }, 13500) // Show loading spinner
+    const finish = setTimeout(() => {
+      setShowLoadingSpinner(false)
+      sessionStorage.setItem('hasSeenCinematicIntro', 'true')
+      localStorage.setItem('introLastShown', Date.now().toString())
+    }, 15500) // Complete and mark as seen
+    
+    return () => {
+      clearTimeout(stage1)
+      clearTimeout(stage2)
+      clearTimeout(stage3)
+      clearTimeout(stage4)
+      clearTimeout(stage5)
+      clearTimeout(stage6)
+      clearTimeout(stage7)
+      clearTimeout(stage8)
+      clearTimeout(stage9)
+      clearTimeout(finish)
+    }
+  }, [isClient])
+  
+  // Fetch products for hovered category
+  useEffect(() => {
+    if (!hoveredCategory) return
+    
+    const fetchCategoryProducts = async () => {
+      // Check if we already have products for this category
+      if (categoryProducts[hoveredCategory]) return
+      
+      try {
+        const { data, error } = await supabase
+          .from('listings')
+          .select('id, title, price, images')
+          .eq('category_id', hoveredCategory)
+          .eq('status', 'active')
+          .limit(3)
+        
+        if (error) throw error
+        setCategoryProducts(prev => ({
+          ...prev,
+          [hoveredCategory]: data || []
+        }))
+      } catch (error) {
+        console.error('Error fetching category products:', error)
+      }
+    }
+    
+    fetchCategoryProducts()
+  }, [hoveredCategory, categoryProducts, supabase])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -132,6 +302,48 @@ export default function HomePage() {
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [heroInView, stats.listings, stats.users])
+  
+  // Scroll progress and back to top
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      const progress = (scrollTop / docHeight) * 100
+      setScrollProgress(Math.min(progress, 100))
+      setShowBackToTop(scrollTop > 500)
+    }
+    
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+  
+  const scrollToTop = () => {
+    const startPosition = window.scrollY
+    const duration = 1500 // 1.5 seconds for slower scroll
+    const startTime = performance.now()
+    
+    const animateScroll = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Ease out cubic function for smooth deceleration
+      const easeOut = 1 - Math.pow(1 - progress, 3)
+      
+      window.scrollTo(0, startPosition * (1 - easeOut))
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll)
+      }
+    }
+    
+    requestAnimationFrame(animateScroll)
+  }
+  
+  const skipCinematicIntro = () => {
+    setShowCinematicIntro(false)
+    setShowLoadingSpinner(false)
+    sessionStorage.setItem('hasSeenCinematicIntro', 'true')
+  }
 
   const handleHeroPointerMove = (event: React.PointerEvent<HTMLElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect()
@@ -296,6 +508,25 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 space-y-0">
+      {/* Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1.5 bg-slate-200 dark:bg-slate-800 z-[100]">
+        <div 
+          className="h-full bg-gradient-to-r from-indigo-600 to-blue-600 transition-all duration-150 ease-out"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
+      
+      {/* Back to Top Button */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-40 p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          aria-label="Back to top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
+      
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes fadeInUp {
           from {
@@ -538,7 +769,117 @@ export default function HomePage() {
         .animate-loop-surimart {
           animation: loopSuriMart 6s infinite;
         }
+        @keyframes gradientShift {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(16px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-gradient-shift {
+          background-size: 200% 200%;
+          animation: gradientShift 3s ease infinite;
+        }
       `}} />
+      
+      {/* Cinematic Introduction */}
+      {showCinematicIntro && (
+        <div className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${cinematicStage >= 8 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+          {/* Skip Button */}
+          <button
+            onClick={skipCinematicIntro}
+            className="absolute top-4 right-4 z-30 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 rounded-full text-sm font-semibold transition-all duration-300 hover:scale-105"
+          >
+            Skip
+          </button>
+          
+          {/* Background gradient that fades in smoothly */}
+          <div className={`absolute inset-0 bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-950 transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'}`} />
+          
+          {/* Cinematic letterbox effect */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-20">
+            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 8 ? 'h-0' : ''}`} />
+            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 8 ? 'h-0' : ''}`} />
+          </div>
+          
+          {/* Main content */}
+          <div className="relative z-10 text-center">
+            {/* Logo reveal with gradient text */}
+            <div className={`transition-all duration-3000 ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-200'}`}>
+              <h1 className="text-6xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift">
+                SURIMART
+              </h1>
+              <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-2000 ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
+            </div>
+            
+            {/* Tagline reveal */}
+            <div className={`mt-8 transition-all duration-2500 delay-500 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
+              <p className="text-xl sm:text-2xl text-indigo-200 font-light tracking-wide">
+                Your Gateway to the Surigao Region
+              </p>
+            </div>
+            
+            {/* Subtitle - words show one by one */}
+            <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
+              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                Marketplace
+              </span>
+              <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100' : 'opacity-0'}`}>•</span>
+              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                Community
+              </span>
+              <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>•</span>
+              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 6 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+                Connection
+              </span>
+            </div>
+            
+            {/* Decorative particles */}
+            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-2000 ${cinematicStage >= 7 ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
+              <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-300" />
+              <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-700" />
+              <div className="absolute bottom-1/3 right-1/3 w-2 h-2 bg-indigo-300 rounded-full animate-pulse delay-1000" />
+            </div>
+            
+            {/* Animated ring */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-indigo-500/30 rounded-full transition-all duration-3000 ${cinematicStage >= 7 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-blue-500/20 rounded-full transition-all duration-3000 delay-300 ${cinematicStage >= 7 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+          </div>
+          
+          {/* Dramatic light rays */}
+          <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 8 ? 'opacity-0' : ''}`}>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-500/30 via-transparent to-transparent animate-pulse" />
+          </div>
+        </div>
+      )}
+      
+      {/* Loading Spinner with SuriMart Branding */}
+      {showLoadingSpinner && (
+        <div className="fixed inset-0 z-[200] bg-white flex items-center justify-center transition-opacity duration-2000">
+          <div className="flex flex-col items-center">
+            <div className="relative w-16 h-16">
+              <div className="absolute inset-0 border-4 border-indigo-200 rounded-full" />
+              <div className="absolute inset-0 border-4 border-transparent border-t-indigo-600 rounded-full animate-spin" />
+              <div className="absolute inset-2 border-4 border-transparent border-t-indigo-400 rounded-full animate-spin" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }} />
+            </div>
+            <div className="mt-4 text-center">
+              <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">SuriMart</h2>
+              <p className="text-sm text-indigo-600 mt-1">Loading...</p>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Hero Section with fade-in animation */}
+      <div className={`transition-opacity duration-4000 ${showCinematicIntro || showLoadingSpinner ? 'opacity-0' : 'opacity-100'}`}>
       {/* Hero Showcase Section */}
       <section 
         ref={heroRef}
@@ -563,29 +904,6 @@ export default function HomePage() {
             }}
           />
         ))}
-        
-        {/* Floating e-commerce icons */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {/* Scattered icons across the entire background */}
-          <ShoppingBag className="absolute top-[8%] left-[12%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-1" />
-          <ShoppingCart className="absolute top-[15%] right-[25%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-2" />
-          <Package className="absolute top-[35%] left-[8%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-3" />
-          <Store className="absolute top-[45%] right-[15%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-4" />
-          <Truck className="absolute bottom-[35%] left-[20%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-5" />
-          <CreditCard className="absolute bottom-[25%] right-[22%] w-6 h-6 sm:w-10 sm:h-10 text-white/8 animate-float-icon-1" style={{ animationDelay: '2s' }} />
-          <Gift className="absolute top-[65%] left-[35%] w-5 h-5 sm:w-9 sm:h-9 text-white/7 animate-float-icon-2" style={{ animationDelay: '3s' }} />
-          <ShoppingBag className="absolute top-[20%] left-[40%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '4s' }} />
-          <Store className="absolute bottom-[15%] left-[45%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-4" style={{ animationDelay: '5s' }} />
-          <Gift className="absolute top-[75%] right-[35%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-2" style={{ animationDelay: '6s' }} />
-          <CreditCard className="absolute top-[30%] right-[40%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '7s' }} />
-          <Package className="absolute bottom-[45%] left-[55%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-3" style={{ animationDelay: '1.5s' }} />
-          <ShoppingCart className="absolute top-[55%] right-[50%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-2" style={{ animationDelay: '2.5s' }} />
-          <Truck className="absolute top-[40%] left-[60%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-5" style={{ animationDelay: '3.5s' }} />
-          <ShoppingBag className="absolute bottom-[20%] right-[60%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-1" style={{ animationDelay: '4.5s' }} />
-          {/* Additional icons on upper middle */}
-          <ShoppingCart className="absolute top-[12%] left-[45%] w-5 h-5 sm:w-8 sm:h-8 text-white/6 animate-float-icon-2" style={{ animationDelay: '0.5s' }} />
-          <Package className="absolute top-[18%] right-[45%] w-4 h-4 sm:w-7 sm:h-7 text-white/5 animate-float-icon-3" style={{ animationDelay: '1s' }} />
-        </div>
         
         <div className="container mx-auto relative z-10">
           <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 items-center">
@@ -618,10 +936,10 @@ export default function HomePage() {
                 <Button 
                   size="lg" 
                   asChild 
-                  className="bg-white hover:bg-indigo-50 text-indigo-700 shadow-xl rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                  className={`${buttonSwap ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white hover:bg-indigo-50 text-indigo-700'} shadow-xl rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base`}
                 >
                   <Link href="/browse">
-                    <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-indigo-600 animate-bounce" />
+                    <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-bounce" />
                     Browse Products
                   </Link>
                 </Button>
@@ -629,10 +947,10 @@ export default function HomePage() {
                   size="lg" 
                   variant="outline" 
                   asChild 
-                  className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                  className={`${buttonSwap ? 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20'} shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base`}
                 >
                   <Link href="/register">
-                    <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-indigo-200" />
+                    <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     Start Selling
                   </Link>
                 </Button>
@@ -759,7 +1077,7 @@ export default function HomePage() {
       </section>
 
       {/* Search Input Section */}
-      <section className="py-12 px-4 bg-slate-50 dark:bg-slate-900/40 border-b">
+      <section className="py-12 px-4 border-b bg-slate-50 dark:bg-slate-900/40 relative z-0">
         <div className="container mx-auto">
           <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto">
             <div className="relative">
@@ -769,6 +1087,8 @@ export default function HomePage() {
                 placeholder="Search for products, categories, or locations..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 className="w-full pl-12 pr-32 py-4 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-300 shadow-md hover:shadow-lg text-sm sm:text-base text-slate-800 dark:text-slate-100"
               />
               <Button 
@@ -777,6 +1097,26 @@ export default function HomePage() {
               >
                 Search
               </Button>
+              
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-20">
+                  {searchSuggestions.map((suggestion) => (
+                    <Link
+                      key={suggestion.id}
+                      href={`/products/${suggestion.id}`}
+                      onClick={() => {
+                        setSearchQuery(suggestion.title)
+                        setShowSuggestions(false)
+                      }}
+                      className="block px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
+                    >
+                      <div className="font-medium text-slate-900 dark:text-slate-100">{suggestion.title}</div>
+                      <div className="text-sm text-indigo-600 dark:text-indigo-400">₱{suggestion.price.toLocaleString()}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </form>
         </div>
@@ -810,8 +1150,13 @@ export default function HomePage() {
       )}
 
       {/* Categories Grid Section */}
-      <section ref={categoriesRef} className="py-16 px-4 bg-slate-55/20 dark:bg-slate-900/10">
-        <div className="container mx-auto max-w-6xl">
+      <section ref={categoriesRef} className="py-16 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative z-[100]">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/10 dark:bg-indigo-600/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-3xl" />
+        </div>
+        <div className="container mx-auto max-w-6xl relative z-10">
           <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
             categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
           }`}>
@@ -826,30 +1171,81 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
               {categories.map((category, index) => (
-                <Link
+                <div
                   key={category.id}
-                  href={`/browse?category=${category.id}`}
-                  className={`group transition-all duration-550 ${
+                  className={`group relative transition-all duration-550 z-30 ${
                     categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
                   }`}
                   style={{
                     transitionDelay: `${index * 50}ms`,
                   }}
                 >
-                  <Card className="hover:shadow-md hover:scale-[1.03] transition-all duration-300 border border-slate-200 hover:border-indigo-400 dark:border-slate-800 dark:hover:border-indigo-850 rounded-2xl bg-white dark:bg-slate-950">
-                    <CardContent className="p-5 text-center">
-                      <div className="text-4xl mb-2.5 transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300">
-                        {categoryIcons[category.name] || '📦'}
-                      </div>
-                      <h3 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm sm:text-base">
+                  <Link
+                    href={`/browse?category=${category.id}`}
+                    className="block h-full"
+                    onMouseEnter={() => setHoveredCategory(category.id)}
+                    onMouseLeave={() => setHoveredCategory(null)}
+                  >
+                    <Card className="hover:shadow-lg hover:scale-[1.05] transition-all duration-300 border border-slate-200 hover:border-indigo-400 dark:border-slate-800 dark:hover:border-indigo-850 rounded-2xl bg-white dark:bg-slate-950 h-full relative z-10 min-h-[140px]">
+                      <CardContent className="p-5 text-center flex flex-col items-center justify-center h-full">
+                        <div className="w-12 h-12 mb-2.5 flex items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 transition-transform group-hover:scale-110 group-hover:rotate-3 duration-300 flex-shrink-0">
+                          {(() => {
+                            const IconComponent = categoryIcons[category.name.toLowerCase()] || Package
+                            return <IconComponent className="w-6 h-6" />
+                          })()}
+                        </div>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors text-sm sm:text-base">
+                          {category.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1 font-semibold">
+                          {category.count || 0} products
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                  
+                  {/* Product Preview on Hover */}
+                  {hoveredCategory === category.id && categoryProducts[category.id] && (
+                    <div 
+                      className="absolute -top-64 left-0 right-0 z-[9999] bg-white dark:bg-slate-950 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-3 animate-fade-in-up pointer-events-auto"
+                    >
+                      <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-2 text-center">
                         {category.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1 font-semibold">
-                        {category.count || 0} products
-                      </p>
-                    </CardContent>
-                  </Card>
-                </Link>
+                      </div>
+                      <div className="space-y-2">
+                        {categoryProducts[category.id].map((product: any) => (
+                          <Link
+                            key={product.id}
+                            href={`/products/${product.id}`}
+                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          >
+                            <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-800 flex-shrink-0 overflow-hidden">
+                              {product.images && product.images[0] ? (
+                                <img
+                                  src={product.images[0]}
+                                  alt={product.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                                  <span className="text-sm">📦</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium text-slate-900 dark:text-slate-100 truncate">
+                                {product.title}
+                              </p>
+                              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
+                                ₱{product.price.toLocaleString()}
+                              </p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -857,8 +1253,13 @@ export default function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section ref={featuresRef} className="py-16 px-4 bg-white dark:bg-slate-950">
-        <div className="container mx-auto max-w-5xl">
+      <section ref={featuresRef} className="py-16 px-4 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/20 dark:from-slate-950 dark:via-indigo-950/15 dark:to-blue-950/15 relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-20 w-72 h-72 bg-indigo-400/5 dark:bg-indigo-600/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-20 w-72 h-72 bg-blue-400/5 dark:bg-blue-600/5 rounded-full blur-3xl" />
+        </div>
+        <div className="container mx-auto max-w-5xl relative z-10">
           <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
             featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
           }`}>
@@ -950,6 +1351,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   )
 }

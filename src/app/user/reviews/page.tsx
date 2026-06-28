@@ -127,6 +127,29 @@ export default function ReviewsPage() {
         reply_text: replyText.trim(),
       })
       if (error) throw error
+      
+      // Get review details to create notification
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('reviewer_id, listing_id, listings!inner(title)')
+        .eq('id', reviewId)
+        .single()
+      
+      if (reviewData) {
+        // Create notification for the reviewer
+        const { error: notificationError } = await supabase.from('notifications').insert({
+          user_id: reviewData.reviewer_id,
+          title: 'Seller Replied to Your Review',
+          content: `The seller replied to your review for "${reviewData.listings.title}".`,
+          link: '/user/reviews',
+          is_read: false,
+        })
+        
+        if (notificationError) {
+          console.error('Notification error:', notificationError)
+        }
+      }
+      
       setReplyText('')
       setReplyingTo(null)
       fetchReviews()

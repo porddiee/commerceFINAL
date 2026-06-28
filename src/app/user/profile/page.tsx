@@ -134,13 +134,31 @@ export default function UserProfilePage() {
 
   const handleAvatarUpload = async () => {
     if (!avatarFile || !user) return formData.avatar_url
-    const fileExt = avatarFile.name.split('.').pop()
-    const fileName = `${user.id}-${Date.now()}.${fileExt}`
-    const filePath = `avatars/${fileName}`
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true })
-    if (uploadError) throw uploadError
-    const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
-    return publicUrl
+    try {
+      const fileExt = avatarFile.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `avatars/${fileName}`
+      
+      // Try to upload directly without checking if bucket exists
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile, { upsert: true })
+      
+      if (uploadError) {
+        console.error('Supabase upload error:', uploadError)
+        
+        // If bucket doesn't exist, provide helpful error
+        if (uploadError.message.includes('Bucket not found') || uploadError.message.includes('bucket')) {
+          throw new Error('Storage bucket "avatars" not found. Please verify: 1) You created it in the correct Supabase project (https://ncgssjjcsqnhujbkozzy.supabase.co), 2) It is named exactly "avatars" (lowercase), 3) It is set to public')
+        }
+        
+        throw uploadError
+      }
+      
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      return publicUrl
+    } catch (error: any) {
+      console.error('Avatar upload error:', error)
+      throw error
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,7 +169,18 @@ export default function UserProfilePage() {
       let avatarUrl = formData.avatar_url || profile?.avatar_url || ''
       if (avatarFile) {
         try { const url = await handleAvatarUpload(); if (url) avatarUrl = url }
-        catch (e) { console.error('Avatar upload failed:', e) }
+        catch (e: any) { 
+          console.error('Avatar upload failed:', e)
+          const errorMessage = e?.message || 'Failed to upload avatar'
+          if (errorMessage.includes('bucket')) {
+            setSaveError('Storage bucket not configured. Please create "avatars" bucket in Supabase Storage.')
+          } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
+            setSaveError('Storage permission denied. Check bucket policies in Supabase.')
+          } else {
+            setSaveError(errorMessage)
+          }
+          setTimeout(() => setSaveError(''), 5000); setSaving(false); return 
+        }
       }
       const { error: updateError } = await supabase.from('profiles').update({
         full_name: formData.full_name || '', bio: formData.bio || '',
@@ -159,6 +188,8 @@ export default function UserProfilePage() {
       }).eq('id', user.id)
       if (updateError) { setSaveError(updateError.message || 'Failed to update profile'); setTimeout(() => setSaveError(''), 3000); return }
       setProfile({ ...(profile || {}), ...formData, avatar_url: avatarUrl })
+      // Update auth store to ensure persistence across sessions
+      useAuthStore.getState().setProfile({ ...(profile || {}), ...formData, avatar_url: avatarUrl })
       setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000)
     } catch (error: any) {
       setSaveError(error?.message || 'Failed to update profile'); setTimeout(() => setSaveError(''), 3000)
