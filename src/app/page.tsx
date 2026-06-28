@@ -1076,10 +1076,17 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Search Input Section */}
-      <section className="py-12 px-4 border-b bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative z-0">
-        <div className="container mx-auto">
-          <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto">
+      {/* Search and Categories Section */}
+      <section ref={categoriesRef} className="py-12 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/10 dark:bg-indigo-600/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="container mx-auto relative z-10">
+          {/* Search Input */}
+          <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto mb-16">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
               <input
@@ -1100,7 +1107,7 @@ export default function HomePage() {
               
               {/* Search Suggestions Dropdown */}
               {showSuggestions && searchSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-20">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
                   {searchSuggestions.map((suggestion) => (
                     <Link
                       key={suggestion.id}
@@ -1119,49 +1126,14 @@ export default function HomePage() {
               )}
             </div>
           </form>
-        </div>
-      </section>
 
-      {/* Recently Viewed Section */}
-      {user && recentlyViewed.length > 0 && (
-        <section className="py-12 px-4 bg-white dark:bg-slate-950">
-          <div className="container mx-auto">
-            <div className="flex items-center gap-2 mb-8 border-b pb-3">
-              <Clock className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
-            </div>
-            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-thin">
-              {recentlyViewed.map((listing, index) => (
-                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-32 sm:w-52 relative group">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-4 right-4 z-20 bg-white/95 dark:bg-slate-950/95 backdrop-blur h-6 w-6 rounded-full shadow-sm hover:scale-105 border transition-all"
-                    onClick={() => handleRemoveFromRecentlyViewed(listing.id)}
-                  >
-                    <X className="h-3.5 w-3.5 text-slate-500 hover:text-rose-500" />
-                  </Button>
-                  <ListingCard {...listing} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Categories Grid Section */}
-      <section ref={categoriesRef} className="py-16 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative z-[100]">
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/10 dark:bg-indigo-600/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-3xl" />
-        </div>
-        <div className="container mx-auto max-w-6xl relative z-10">
-          <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
-            categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
-          }`}>
-            Browse Categories
-          </h2>
+          {/* Categories Grid */}
+          <div className="max-w-6xl mx-auto">
+            <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${
+              categoriesInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+            }`}>
+              Browse Categories
+            </h2>
           {loading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-5">
               {[...Array(6)].map((_, i) => (
@@ -1250,7 +1222,35 @@ export default function HomePage() {
             </div>
           )}
         </div>
+      </div>
       </section>
+
+      {/* Recently Viewed Section */}
+      {user && recentlyViewed.length > 0 && (
+        <section className="py-12 px-4 bg-white dark:bg-slate-950">
+          <div className="container mx-auto">
+            <div className="flex items-center gap-2 mb-8 border-b pb-3">
+              <Clock className="h-5 w-5 text-indigo-500" />
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
+            </div>
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-thin">
+              {recentlyViewed.map((listing, index) => (
+                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-32 sm:w-52 relative group">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-4 right-4 z-20 bg-white/95 dark:bg-slate-950/95 backdrop-blur h-6 w-6 rounded-full shadow-sm hover:scale-105 border transition-all"
+                    onClick={() => handleRemoveFromRecentlyViewed(listing.id)}
+                  >
+                    <X className="h-3.5 w-3.5 text-slate-500 hover:text-rose-500" />
+                  </Button>
+                  <ListingCard {...listing} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section ref={featuresRef} className="py-16 px-4 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/20 dark:from-slate-950 dark:via-indigo-950/15 dark:to-blue-950/15 relative overflow-hidden">

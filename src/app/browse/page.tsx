@@ -53,10 +53,12 @@ export default function BrowsePage() {
   const [showCartNotification, setShowCartNotification] = useState(false)
   const [showErrorNotification, setShowErrorNotification] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
 
   useEffect(() => {
     fetchCategories()
-    fetchListings()
+    fetchListings(0)
   }, [])
 
   useEffect(() => {
@@ -85,17 +87,13 @@ export default function BrowsePage() {
     }
   }, [searchQuery])
 
-  // Auto-search when debounced query changes
-  useEffect(() => {
-    if (debouncedQuery !== searchQuery) {
-      fetchListings()
-    }
-  }, [debouncedQuery])
-
   // Auto-search when filters change
   useEffect(() => {
-    fetchListings()
-  }, [category, condition, sortBy, priceRange, datePosted])
+    setPage(0)
+    setListings([])
+    setHasMore(true)
+    fetchListings(0)
+  }, [category, condition, sortBy, priceRange, datePosted, debouncedQuery])
   
   // Update category from URL when it changes
   useEffect(() => {
@@ -299,13 +297,14 @@ export default function BrowsePage() {
     }
   }
 
-  const fetchListings = async () => {
-    setLoading(true)
+  const fetchListings = async (currentPage = 0) => {
+    if (currentPage === 0) setLoading(true)
     try {
       let query = supabase
         .from('listings')
         .select('*')
         .eq('status', 'active')
+        .range(currentPage * 16, (currentPage + 1) * 16 - 1)
 
       if (debouncedQuery) {
         query = query.ilike('title', `%${debouncedQuery}%`)
@@ -373,6 +372,11 @@ export default function BrowsePage() {
         throw error
       }
 
+      // Check if there are more items
+      if (data && data.length < 16) {
+        setHasMore(false)
+      }
+
       // Fetch seller profiles and extra data for each listing
       const listingsWithExtraData = await Promise.all(
         (data || []).map(async (listing) => {
@@ -412,11 +416,15 @@ export default function BrowsePage() {
         })
       )
       
-      setListings(listingsWithExtraData)
+      if (currentPage === 0) {
+        setListings(listingsWithExtraData)
+      } else {
+        setListings(prev => [...prev, ...listingsWithExtraData])
+      }
     } catch (error: any) {
       console.error('Error fetching listings:', error?.message || error)
     } finally {
-      setLoading(false)
+      if (currentPage === 0) setLoading(false)
     }
   }
 
@@ -796,22 +804,39 @@ export default function BrowsePage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {listings.map((listing) => (
-              <ListingCard 
-                key={listing.id}
-                {...listing}
-                sellerName={listing.profiles?.full_name || 'Unknown'}
-                sellerAvatar={listing.profiles?.avatar_url}
-                isSaved={savedListings.has(listing.id)}
-                onToggleSave={toggleSaveListing}
-                quantity={listing.quantity}
-                avgRating={listing.avgRating}
-                reviewCount={listing.reviewCount}
-                purchaseCount={listing.purchaseCount}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {listings.map((listing) => (
+                <ListingCard 
+                  key={listing.id}
+                  {...listing}
+                  sellerName={listing.profiles?.full_name || 'Unknown'}
+                  sellerAvatar={listing.profiles?.avatar_url}
+                  isSaved={savedListings.has(listing.id)}
+                  onToggleSave={toggleSaveListing}
+                  quantity={listing.quantity}
+                  avgRating={listing.avgRating}
+                  reviewCount={listing.reviewCount}
+                  purchaseCount={listing.purchaseCount}
+                />
+              ))}
+            </div>
+            
+            {hasMore && (
+              <div className="flex justify-center pt-6">
+                <Button
+                  onClick={() => {
+                    const nextPage = page + 1
+                    setPage(nextPage)
+                    fetchListings(nextPage)
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 rounded-xl font-semibold shadow-md transition-all duration-200"
+                >
+                  See More
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
