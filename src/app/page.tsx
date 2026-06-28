@@ -771,7 +771,7 @@ export default function HomePage() {
         }
         @keyframes gradientShift {
           0%, 100% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
+          50% { background-position: 200% 50%; }
         }
         @keyframes fadeInUp {
           from {
@@ -801,7 +801,7 @@ export default function HomePage() {
           </button>
           
           {/* Background gradient that fades in smoothly */}
-          <div className={`absolute inset-0 bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-950 transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'}`} />
+          <div className={`absolute inset-0 bg-gradient-to-br from-indigo-700 via-indigo-800 to-blue-950 transition-opacity duration-5000 ease-in-out ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'}`} />
           
           {/* Cinematic letterbox effect */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-20">
@@ -813,7 +813,7 @@ export default function HomePage() {
           <div className="relative z-10 text-center">
             {/* Logo reveal with gradient text */}
             <div className={`transition-all duration-3000 ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-200'}`}>
-              <h1 className="text-6xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift">
+              <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift">
                 SURIMART
               </h1>
               <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-2000 ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
@@ -821,22 +821,22 @@ export default function HomePage() {
             
             {/* Tagline reveal */}
             <div className={`mt-8 transition-all duration-2500 delay-500 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
-              <p className="text-xl sm:text-2xl text-indigo-200 font-light tracking-wide">
+              <p className="text-base sm:text-2xl text-indigo-200 font-light tracking-wide">
                 Your Gateway to the Surigao Region
               </p>
             </div>
             
             {/* Subtitle - words show one by one */}
             <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
-              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                 Marketplace
               </span>
               <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100' : 'opacity-0'}`}>•</span>
-              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                 Community
               </span>
               <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>•</span>
-              <span className={`text-sm sm:text-base text-indigo-300/80 tracking-widest uppercase transition-all duration-1500 ${cinematicStage >= 6 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 6 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
                 Connection
               </span>
             </div>
