@@ -15,6 +15,8 @@ import {
   Camera,
   Loader2,
   BadgeCheck,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react'
 
 type Tab = 'info' | 'verification'
