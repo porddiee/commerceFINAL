@@ -409,7 +409,7 @@ export default function SettingsPage() {
     setEmailVerificationLoading(true)
     try {
       const { error } = await supabase.auth.resend({
-        type: 'email',
+        type: 'signup',
         email: user.email!,
       })
       if (error) throw error
