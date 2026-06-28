@@ -85,16 +85,8 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-35 transition-opacity duration-300"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-3.5 left-4 z-60">
+      {/* Mobile menu button - outside sidebar so it's always visible */}
+      <div className="lg:hidden fixed top-20 left-4 z-[100]">
         <Button
           variant="outline"
           size="icon"
@@ -105,10 +97,18 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
         </Button>
       </div>
 
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-35 transition-opacity duration-300"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
       {/* Sidebar — indigo gradient matching homepage */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
+          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
           shouldExpand ? 'w-64' : 'w-16',
           'lg:translate-x-0',
           !isOpen && '-translate-x-full lg:translate-x-0'
@@ -116,7 +116,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
       >
-        <div className="flex flex-col h-full pt-16">
+        <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-center p-4 border-b border-white/10 h-16">
             <div className="flex items-center gap-2 overflow-hidden">

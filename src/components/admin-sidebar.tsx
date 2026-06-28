@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import Image from 'next/image'
 import {
   Home,
   LayoutDashboard,
@@ -44,8 +45,8 @@ export function AdminSidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      {/* Mobile menu button - outside sidebar so it's always visible */}
+      <div className="lg:hidden fixed top-20 left-4 z-[100]">
         <Button
           variant="outline"
           size="icon"
@@ -59,7 +60,7 @@ export function AdminSidebar() {
       {/* Sidebar — indigo gradient matching homepage */}
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 h-screen bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
+          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
           shouldExpand ? 'w-64' : 'w-16',
           'lg:translate-x-0',
           !isOpen && '-translate-x-full lg:translate-x-0'
@@ -71,8 +72,8 @@ export function AdminSidebar() {
           {/* Header */}
           <div className="flex items-center justify-center p-4 border-b border-white/10">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/20 hover:shadow-indigo-400/30 transition-all duration-200 hover:scale-[1.05] backdrop-blur-sm">
-                <span className="text-white font-black text-lg">M</span>
+              <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden shadow-lg shadow-black/20 hover:shadow-indigo-400/30 transition-all duration-200 hover:scale-[1.05] bg-white/10 border border-white/20 backdrop-blur-sm">
+                <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="w-full h-full object-contain" />
               </div>
               {shouldExpand && (
                 <span className="font-black text-xl text-white whitespace-nowrap tracking-tight">
