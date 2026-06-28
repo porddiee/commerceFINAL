@@ -1077,7 +1077,7 @@ export default function HomePage() {
       </section>
 
       {/* Search Input Section */}
-      <section className="py-12 px-4 border-b bg-slate-50 dark:bg-slate-900/40 relative z-0">
+      <section className="py-12 px-4 border-b bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative z-0">
         <div className="container mx-auto">
           <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto">
             <div className="relative">
