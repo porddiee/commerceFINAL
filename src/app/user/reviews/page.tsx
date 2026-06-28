@@ -140,7 +140,7 @@ export default function ReviewsPage() {
         const { error: notificationError } = await supabase.from('notifications').insert({
           user_id: reviewData.reviewer_id,
           title: 'Seller Replied to Your Review',
-          content: `The seller replied to your review for "${reviewData.listings.title}".`,
+          content: `The seller replied to your review for "${reviewData.listings[0]?.title || 'your product'}".`,
           link: '/user/reviews',
           is_read: false,
         })
