@@ -1,4 +1,4 @@
-# SAIL - Surigao AI Intelligent Link
+# SuriMart - Surigao Marketplace
 
 A modern marketplace platform built with Next.js 15, TypeScript, Tailwind CSS, Shadcn UI, and Supabase.
 
