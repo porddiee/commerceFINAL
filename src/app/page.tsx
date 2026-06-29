@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint } from 'lucide-react'
+import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint, MessageSquare, Eye, ArrowUpRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import ListingCard from '@/components/listing-card'
@@ -31,6 +31,13 @@ const categoryIcons: Record<string, any> = {
   'other': MoreHorizontal,
   'pets': PawPrint,
   'pet': PawPrint,
+}
+
+type TrendingProduct = {
+  id: string
+  title: string
+  price: number | null
+  views: number | null
 }
 
 export default function HomePage() {
@@ -60,7 +67,8 @@ export default function HomePage() {
   const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [debouncedQuery, setDebouncedQuery] = useState('')
-  const [buttonSwap, setButtonSwap] = useState(false)
+  const [trendingProducts, setTrendingProducts] = useState<TrendingProduct[]>([])
+  const [trendingProductsLoading, setTrendingProductsLoading] = useState(true)
   
   // Split featured listings into 3 groups for different columns
   const column1Listings = useMemo(() => {
@@ -82,26 +90,21 @@ export default function HomePage() {
   // Intersection observer animations
   const [categoriesInView, setCategoriesInView] = useState(false)
   const [featuresInView, setFeaturesInView] = useState(false)
+  const [howItWorksInView, setHowItWorksInView] = useState(false)
   const heroRef = useRef<HTMLElement>(null)
   const categoriesRef = useRef<HTMLDivElement>(null)
   const featuresRef = useRef<HTMLDivElement>(null)
+  const howItWorksRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchCategories()
     fetchStats()
     fetchFeaturedListings()
+    fetchTrendingProducts()
     if (user) {
       fetchRecentlyViewed()
     }
   }, [user])
-  
-  // Button swap animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setButtonSwap(prev => !prev)
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
   
   // Search suggestions
   useEffect(() => {
@@ -178,23 +181,16 @@ export default function HomePage() {
     
     setShowCinematicIntro(true)
     
-    const stage1 = setTimeout(() => setCinematicStage(1), 2500) // Background gradient fades in
-    const stage2 = setTimeout(() => setCinematicStage(2), 5000) // Logo reveal with scale
-    const stage3 = setTimeout(() => setCinematicStage(3), 7000) // Tagline slide up
-    const stage4 = setTimeout(() => setCinematicStage(4), 8500) // First word: Marketplace
-    const stage5 = setTimeout(() => setCinematicStage(5), 9500) // Second word: Community
-    const stage6 = setTimeout(() => setCinematicStage(6), 10500) // Third word: Connection
-    const stage7 = setTimeout(() => setCinematicStage(7), 11500) // Decorative elements
-    const stage8 = setTimeout(() => setCinematicStage(8), 12500) // Letterbox collapse
-    const stage9 = setTimeout(() => {
-      setShowCinematicIntro(false)
-      setShowLoadingSpinner(true)
-    }, 13500) // Show loading spinner
+    const stage1 = setTimeout(() => setCinematicStage(1), 1000) // Background gradient fades in
+    const stage2 = setTimeout(() => setCinematicStage(2), 2500) // Logo reveal with scale
+    const stage3 = setTimeout(() => setCinematicStage(3), 4000) // Tagline slide up
+    const stage4 = setTimeout(() => setCinematicStage(4), 5500) // Subtitle words appear together
+    const stage5 = setTimeout(() => setCinematicStage(5), 7000) // Decorative elements + letterbox collapse
     const finish = setTimeout(() => {
-      setShowLoadingSpinner(false)
+      setShowCinematicIntro(false)
       sessionStorage.setItem('hasSeenCinematicIntro', 'true')
       localStorage.setItem('introLastShown', Date.now().toString())
-    }, 15500) // Complete and mark as seen
+    }, 8000) // Complete and mark as seen
     
     return () => {
       clearTimeout(stage1)
@@ -202,10 +198,6 @@ export default function HomePage() {
       clearTimeout(stage3)
       clearTimeout(stage4)
       clearTimeout(stage5)
-      clearTimeout(stage6)
-      clearTimeout(stage7)
-      clearTimeout(stage8)
-      clearTimeout(stage9)
       clearTimeout(finish)
     }
   }, [isClient])
@@ -341,7 +333,6 @@ export default function HomePage() {
   
   const skipCinematicIntro = () => {
     setShowCinematicIntro(false)
-    setShowLoadingSpinner(false)
     sessionStorage.setItem('hasSeenCinematicIntro', 'true')
   }
 
@@ -351,6 +342,26 @@ export default function HomePage() {
       x: ((event.clientX - bounds.left) / bounds.width) * 100,
       y: ((event.clientY - bounds.top) / bounds.height) * 100
     })
+  }
+
+  const fetchTrendingProducts = async () => {
+    setTrendingProductsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('id, title, price, views')
+        .eq('status', 'active')
+        .order('views', { ascending: false })
+        .limit(6)
+      
+      if (error) throw error
+      setTrendingProducts(data || [])
+    } catch (error) {
+      console.error('Error fetching trending products:', error)
+      setTrendingProducts([])
+    } finally {
+      setTrendingProductsLoading(false)
+    }
   }
 
   const fetchFeaturedListings = async () => {
@@ -398,6 +409,22 @@ export default function HomePage() {
 
     if (featuresRef.current) {
       observer.observe(featuresRef.current)
+    }
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          setHowItWorksInView(entry.isIntersecting)
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    if (howItWorksRef.current) {
+      observer.observe(howItWorksRef.current)
     }
     return () => observer.disconnect()
   }, [])
@@ -600,22 +627,16 @@ export default function HomePage() {
           }
         }
         @keyframes loopWelcome {
-          0% { opacity: 0; }
-          16.67% { opacity: 1; }
-          91.67% { opacity: 1; }
-          100% { opacity: 0; }
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes loopTo {
-          0%, 16.67% { opacity: 0; }
-          33.33% { opacity: 1; }
-          91.67% { opacity: 1; }
-          100% { opacity: 0; }
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes loopSuriMart {
-          0%, 33.33% { opacity: 0; }
-          50% { opacity: 1; }
-          91.67% { opacity: 1; }
-          100% { opacity: 0; }
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes floatIcon1 {
           0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
@@ -791,7 +812,7 @@ export default function HomePage() {
       
       {/* Cinematic Introduction */}
       {showCinematicIntro && (
-        <div className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${cinematicStage >= 8 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${cinematicStage >= 5 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           {/* Skip Button */}
           <button
             onClick={skipCinematicIntro}
@@ -805,8 +826,8 @@ export default function HomePage() {
           
           {/* Cinematic letterbox effect */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-20">
-            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 8 ? 'h-0' : ''}`} />
-            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 8 ? 'h-0' : ''}`} />
+            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
+            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
           </div>
           
           {/* Main content */}
@@ -826,23 +847,23 @@ export default function HomePage() {
               </p>
             </div>
             
-            {/* Subtitle - words show one by one */}
-            <div className="mt-6 flex items-center justify-center gap-3 sm:gap-4">
-              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+            {/* Subtitle - words show together */}
+            <div className={`mt-6 flex items-center justify-center gap-3 sm:gap-4 transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
                 Marketplace
               </span>
-              <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100' : 'opacity-0'}`}>•</span>
-              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className="text-indigo-500/50">•</span>
+              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
                 Community
               </span>
-              <span className={`text-indigo-500/50 transition-all duration-1500 ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>•</span>
-              <span className={`text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold transition-all duration-1500 ${cinematicStage >= 6 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className="text-indigo-500/50">•</span>
+              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
                 Connection
               </span>
             </div>
             
             {/* Decorative particles */}
-            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-2000 ${cinematicStage >= 7 ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-2000 ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>
               <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
               <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-300" />
               <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-700" />
@@ -850,36 +871,19 @@ export default function HomePage() {
             </div>
             
             {/* Animated ring */}
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-indigo-500/30 rounded-full transition-all duration-3000 ${cinematicStage >= 7 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-blue-500/20 rounded-full transition-all duration-3000 delay-300 ${cinematicStage >= 7 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-indigo-500/30 rounded-full transition-all duration-3000 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-blue-500/20 rounded-full transition-all duration-3000 delay-300 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
           </div>
           
           {/* Dramatic light rays */}
-          <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 8 ? 'opacity-0' : ''}`}>
+          <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 5 ? 'opacity-0' : ''}`}>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-500/30 via-transparent to-transparent animate-pulse" />
           </div>
         </div>
       )}
       
-      {/* Loading Spinner with SuriMart Branding */}
-      {showLoadingSpinner && (
-        <div className="fixed inset-0 z-[200] bg-white flex items-center justify-center transition-opacity duration-2000">
-          <div className="flex flex-col items-center">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 border-4 border-indigo-200 rounded-full" />
-              <div className="absolute inset-0 border-4 border-transparent border-t-indigo-600 rounded-full animate-spin" />
-              <div className="absolute inset-2 border-4 border-transparent border-t-indigo-400 rounded-full animate-spin" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }} />
-            </div>
-            <div className="mt-4 text-center">
-              <h2 className="text-2xl font-bold text-indigo-900 tracking-tight">SuriMart</h2>
-              <p className="text-sm text-indigo-600 mt-1">Loading...</p>
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Hero Section with fade-in animation */}
-      <div className={`transition-opacity duration-4000 ${showCinematicIntro || showLoadingSpinner ? 'opacity-0' : 'opacity-100'}`}>
+      <div className={`transition-opacity duration-4000 ${showCinematicIntro ? 'opacity-0' : 'opacity-100'}`}>
       {/* Hero Showcase Section */}
       <section 
         ref={heroRef}
@@ -921,9 +925,9 @@ export default function HomePage() {
                   </div>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
-                  <span className="animate-loop-welcome">Welcome</span>
-                  <span className="animate-loop-to">to</span>
-                  <span className="animate-loop-surimart inline-block">
+                  <span className="animate-loop-welcome" style={{ animation: 'loopWelcome 0.8s ease-out forwards' }}>Welcome</span>
+                  <span className="animate-loop-to" style={{ animation: 'loopTo 0.8s ease-out 0.2s forwards' }}>to</span>
+                  <span className="animate-loop-surimart inline-block" style={{ animation: 'loopSuriMart 0.8s ease-out 0.4s forwards' }}>
                     <span className="bg-gradient-to-r from-blue-300 via-indigo-200 to-white bg-clip-text text-transparent bg-size-200 animate-bg-pan">SuriMart</span>
                   </span>
                 </h1>
@@ -936,7 +940,7 @@ export default function HomePage() {
                 <Button 
                   size="lg" 
                   asChild 
-                  className={`${buttonSwap ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-white hover:bg-indigo-50 text-indigo-700'} shadow-xl rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base`}
+                  className="bg-white hover:bg-indigo-50 text-indigo-700 shadow-xl rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
                 >
                   <Link href="/browse">
                     <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-bounce" />
@@ -947,7 +951,7 @@ export default function HomePage() {
                   size="lg" 
                   variant="outline" 
                   asChild 
-                  className={`${buttonSwap ? 'bg-white hover:bg-indigo-50 text-indigo-700 border-indigo-300' : 'bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20'} shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base`}
+                  className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
                 >
                   <Link href="/register">
                     <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
@@ -1074,6 +1078,22 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        
+        {/* Scroll Down Indicator */}
+        <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center pointer-events-none">
+          <button
+            onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
+            className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-all duration-300 group animate-bounce pointer-events-auto"
+          >
+            <span className="text-xs font-semibold tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 mb-1">
+              Scroll to explore
+            </span>
+            <div className="relative">
+              <ChevronDown className="w-6 h-6" />
+              <div className="absolute inset-0 bg-white/20 blur-sm rounded-full scale-75 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+          </button>
+        </div>
       </section>
 
       {/* Search and Categories Section */}
@@ -1086,7 +1106,7 @@ export default function HomePage() {
         
         <div className="container mx-auto relative z-10">
           {/* Search Input */}
-          <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto mb-16">
+          <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto mb-8">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
               <input
@@ -1126,6 +1146,76 @@ export default function HomePage() {
               )}
             </div>
           </form>
+
+          {/* Trending Products */}
+          <section className="max-w-5xl mx-auto mb-12" aria-labelledby="trending-products-heading">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-white/80 px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700 shadow-sm dark:border-indigo-900/60 dark:bg-slate-950/70 dark:text-indigo-300">
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  Popular now
+                </div>
+                <h2 id="trending-products-heading" className="mt-3 text-2xl font-extrabold tracking-tight text-slate-950 dark:text-white">
+                  Trending products
+                </h2>
+              </div>
+              <Link
+                href="/browse"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-indigo-700 transition-colors hover:text-indigo-900 dark:text-indigo-300 dark:hover:text-indigo-100"
+              >
+                View all
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            {trendingProductsLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-28 animate-pulse rounded-lg border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"
+                  >
+                    <div className="h-3 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="mt-4 h-4 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="mt-3 h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                  </div>
+                ))}
+              </div>
+            ) : trendingProducts.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {trendingProducts.map((product, index) => (
+                  <article key={product.id} className="group relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-950 dark:hover:border-indigo-700">
+                    <Link href={`/products/${product.id}`} className="block p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-sm font-extrabold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900/70">
+                          {index + 1}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                          <Eye className="h-3.5 w-3.5" />
+                          {(product.views || 0).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-4 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">
+                        {product.title}
+                      </h3>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <p className="text-base font-extrabold text-indigo-700 dark:text-indigo-300">
+                          {product.price !== null ? `PHP ${product.price.toLocaleString()}` : 'Price on request'}
+                        </p>
+                        <ArrowUpRight className="h-4 w-4 text-slate-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
+                      </div>
+                    </Link>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-slate-300 bg-white/70 px-4 py-6 text-center text-sm font-medium text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+                No trending products yet.
+              </div>
+            )}
+          </section>
 
           {/* Categories Grid */}
           <div className="max-w-6xl mx-auto">
@@ -1223,6 +1313,119 @@ export default function HomePage() {
           )}
         </div>
       </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section ref={howItWorksRef} className="py-16 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/10 dark:bg-indigo-600/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="container mx-auto relative z-10">
+          <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-12 transition-all duration-700 ${
+            howItWorksInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+          }`}>
+            How It Works
+          </h2>
+          
+          <div className="max-w-5xl mx-auto">
+            {/* Desktop: Horizontal timeline */}
+            <div className="hidden md:grid md:grid-cols-3 md:gap-8 relative">
+              {/* Connecting line */}
+              <div className={`absolute top-16 left-16 right-16 h-0.5 bg-gradient-to-r from-indigo-300 via-indigo-500 to-indigo-300 transition-all duration-1000 ${
+                howItWorksInView ? 'opacity-100' : 'opacity-0'
+              }`} style={{ transitionDelay: '200ms' }} />
+              
+              {/* Step 1 */}
+              <div className={`relative transition-all duration-700 ${
+                howItWorksInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`} style={{ transitionDelay: '300ms' }}>
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 relative z-10">
+                    <Search className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="absolute top-8 left-1/2 transform -translate-x-1/2 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Browse Products</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Search through thousands of listings in your area</p>
+                </div>
+              </div>
+              
+              {/* Step 2 */}
+              <div className={`relative transition-all duration-700 ${
+                howItWorksInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`} style={{ transitionDelay: '400ms' }}>
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 relative z-10">
+                    <MessageSquare className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="absolute top-8 left-1/2 transform -translate-x-1/2 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Message Seller</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Contact sellers directly to ask questions or negotiate</p>
+                </div>
+              </div>
+              
+              {/* Step 3 */}
+              <div className={`relative transition-all duration-700 ${
+                howItWorksInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+              }`} style={{ transitionDelay: '500ms' }}>
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg mb-4 relative z-10">
+                    <Handshake className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="absolute top-8 left-1/2 transform -translate-x-1/2 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Meet & Trade</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Meet in a safe location to complete the transaction</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile: Vertical timeline */}
+            <div className="md:hidden space-y-8 relative">
+              {/* Vertical connecting line */}
+              <div className={`absolute left-8 top-8 bottom-8 w-0.5 bg-gradient-to-b from-indigo-300 via-indigo-500 to-indigo-300 transition-all duration-1000 ${
+                howItWorksInView ? 'opacity-100' : 'opacity-0'
+              }`} style={{ transitionDelay: '200ms' }} />
+              
+              {/* Step 1 */}
+              <div className={`relative pl-20 transition-all duration-700 ${
+                howItWorksInView ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+              }`} style={{ transitionDelay: '300ms' }}>
+                <div className="absolute left-4 top-0 w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg z-10">
+                  <Search className="w-6 h-6 text-white" />
+                </div>
+                <div className="absolute left-6 top-1 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Browse Products</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Search through thousands of listings in your area</p>
+              </div>
+              
+              {/* Step 2 */}
+              <div className={`relative pl-20 transition-all duration-700 ${
+                howItWorksInView ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+              }`} style={{ transitionDelay: '400ms' }}>
+                <div className="absolute left-4 top-0 w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg z-10">
+                  <MessageSquare className="w-6 h-6 text-white" />
+                </div>
+                <div className="absolute left-6 top-1 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Message Seller</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Contact sellers directly to ask questions or negotiate</p>
+              </div>
+              
+              {/* Step 3 */}
+              <div className={`relative pl-20 transition-all duration-700 ${
+                howItWorksInView ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'
+              }`} style={{ transitionDelay: '500ms' }}>
+                <div className="absolute left-4 top-0 w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg z-10">
+                  <Handshake className="w-6 h-6 text-white" />
+                </div>
+                <div className="absolute left-6 top-1 w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 border-4 border-indigo-500" />
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Meet & Trade</h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Meet in a safe location to complete the transaction</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Recently Viewed Section */}
