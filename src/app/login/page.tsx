@@ -107,7 +107,7 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10">
               <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
-              Surigao Region Marketplacee
+              Surigao Marketplacee
             </div>
             <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight animate-broken-lamp">
               Your local market,{' '}

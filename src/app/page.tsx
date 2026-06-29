@@ -843,7 +843,7 @@ export default function HomePage() {
             {/* Tagline reveal */}
             <div className={`mt-8 transition-all duration-2500 delay-500 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
               <p className="text-base sm:text-2xl text-indigo-200 font-light tracking-wide">
-                Your Gateway to the Surigao Region
+                Your Gateway to the Surigao
               </p>
             </div>
             
@@ -921,7 +921,7 @@ export default function HomePage() {
                   </div>
                   <div className="relative flex items-center gap-2">
                     <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-300 animate-pulse" />
-                    <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">Surigao Region Marketplace</span>
+                    <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">Surigao Marketplace</span>
                   </div>
                 </div>
                 <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight leading-tight flex flex-wrap gap-x-3 items-center min-h-[72px]">
@@ -932,7 +932,7 @@ export default function HomePage() {
                   </span>
                 </h1>
                 <p className="text-base sm:text-lg lg:text-xl text-indigo-100/90 font-medium max-w-lg leading-relaxed animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-                  Your trusted region marketplace. Safe meetups, verified products, and direct communication.
+                  Your trusted marketplace. Safe meetups, verified products, and direct communication.
                 </p>
               </div>
 

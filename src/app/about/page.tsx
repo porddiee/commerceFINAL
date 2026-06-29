@@ -17,7 +17,7 @@ const VALUES = [
   {
     icon: Users,
     title: 'Community First',
-    desc: "Built for the Surigao region, SuriMart connects neighbors. Whether you're in Surigao City or a nearby municipality, your buyer or seller is just around the corner.",
+    desc: "Built for the Surigao, SuriMart connects neighbors. Whether you're in Surigao City or a nearby municipality, your buyer or seller is just around the corner.",
     color: 'from-blue-500 to-cyan-500',
     bg: 'bg-blue-50 dark:bg-blue-950/30',
     text: 'text-blue-600 dark:text-blue-400',
