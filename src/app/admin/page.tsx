@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { createClient } from '@/lib/supabase/client'
 import { 
   Users, 
   ShoppingBag, 
@@ -28,9 +27,9 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useAuthStore } from '@/lib/store/auth'
+import { profilesService, listingsService, categoriesService, ordersService } from '@/services'
 
 export default function AdminDashboardPage() {
-  const supabase = createClient()
   const { profile } = useAuthStore()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -58,96 +57,67 @@ export default function AdminDashboardPage() {
   const fetchDashboardData = async () => {
     setLoading(true)
     try {
-      let usersCount = 0
-      let listingsCount = 0
-      let categoriesCount = 0
-      let activeCount = 0
-      let pendingCount = 0
-      let allCategories: any[] = []
-      let allListings: any[] = []
-      let allOrders: any[] = []
+      const [
+        usersCount,
+        listingsCount,
+        categoriesCount,
+        activeCount,
+        pendingCount,
+        allCategories,
+        allListings,
+        allOrders
+      ] = await Promise.allSettled([
+        profilesService.countUsers(),
+        listingsService.countAllListings(),
+        categoriesService.countCategories(),
+        listingsService.countActiveListings(),
+        profilesService.countPendingVerifications(),
+        categoriesService.getAllCategories(),
+        listingsService.getAllListings(100),
+        ordersService.getAllOrders(100)
+      ])
 
-      // Wrap each query in its own try/catch to make it robust
-      try {
-        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-        usersCount = count || 0
-      } catch (e) { console.error('Error fetching usersCount:', e) }
-
-      try {
-        const { count } = await supabase.from('listings').select('*', { count: 'exact', head: true })
-        listingsCount = count || 0
-      } catch (e) { console.error('Error fetching listingsCount:', e) }
-
-      try {
-        const { count } = await supabase.from('categories').select('*', { count: 'exact', head: true })
-        categoriesCount = count || 0
-      } catch (e) { console.error('Error fetching categoriesCount:', e) }
-
-      try {
-        const { count } = await supabase.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
-        activeCount = count || 0
-      } catch (e) { console.error('Error fetching activeCount:', e) }
-
-      try {
-        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('verification_status', 'pending')
-        pendingCount = count || 0
-      } catch (e) { console.error('Error fetching pendingCount:', e) }
-
-      try {
-        const { data } = await supabase.from('categories').select('id, name')
-        allCategories = data || []
-      } catch (e) { console.error('Error fetching allCategories:', e) }
-
-      try {
-        const { data } = await supabase.from('listings').select('id, title, price, status, created_at, category_id, seller_id')
-        allListings = data || []
-      } catch (e) { console.error('Error fetching allListings:', e) }
-
-      try {
-        const { data } = await supabase.from('orders').select('id, total_price, status, created_at, seller_id, buyer_id')
-        allOrders = data || []
-      } catch (e) { console.error('Error fetching allOrders:', e) }
+      const users = usersCount.status === 'fulfilled' ? usersCount.value : 0
+      const listings = listingsCount.status === 'fulfilled' ? listingsCount.value : 0
+      const categories = categoriesCount.status === 'fulfilled' ? categoriesCount.value : 0
+      const active = activeCount.status === 'fulfilled' ? activeCount.value : 0
+      const pending = pendingCount.status === 'fulfilled' ? pendingCount.value : 0
+      const cats = allCategories.status === 'fulfilled' ? allCategories.value : []
+      const listingsData = allListings.status === 'fulfilled' ? allListings.value : []
+      const ordersData = allOrders.status === 'fulfilled' ? allOrders.value : []
 
       // Calculate total revenue from completed/delivered orders
-      const completedOrders = allOrders.filter(
-        (o: any) => o.status === 'completed' || o.status === 'delivered'
+      const completedOrders = ordersData.filter(
+        (o: { status: string; total_price?: number }) => o.status === 'completed' || o.status === 'delivered'
       )
-      const revenue = completedOrders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0)
+      const revenue = completedOrders.reduce((sum: number, o: { total_price?: number }) => sum + (o.total_price || 0), 0)
 
       setStats({
-        totalUsers: usersCount,
-        totalProducts: listingsCount,
-        totalCategories: categoriesCount,
-        activeProducts: activeCount,
-        pendingVerifications: pendingCount,
+        totalUsers: users,
+        totalProducts: listings,
+        totalCategories: categories,
+        activeProducts: active,
+        pendingVerifications: pending,
         totalRevenue: revenue,
-        totalOrders: allOrders.length,
+        totalOrders: ordersData.length,
       })
 
       // Fetch details for recent users
       try {
-        const { data: latestUsers } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, role, created_at, avatar_url, verification_status')
-          .order('created_at', { ascending: false })
-          .limit(5)
-        setRecentUsers(latestUsers || [])
+        const latestUsers = await profilesService.getRecentUsers(5)
+        setRecentUsers(latestUsers)
       } catch (e) { console.error(e) }
 
       // Match profile info for recent listings
       try {
-        const sortedListings = [...allListings]
+        const sortedListings = [...listingsData]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5)
 
         const listingsWithSellers = await Promise.all(
           sortedListings.map(async (listing) => {
             try {
-              const { data: seller } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', listing.seller_id)
-                .single()
+              const seller = await profilesService.getProfileById(listing.seller_id)
               return { ...listing, profiles: seller }
             } catch (e) {
               return { ...listing, profiles: { full_name: 'Unknown Seller' } }
@@ -159,19 +129,16 @@ export default function AdminDashboardPage() {
 
       // Match profiles for recent orders
       try {
-        const sortedOrders = [...allOrders]
+        const sortedOrders = [...ordersData]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5)
 
         const ordersWithDetails = await Promise.all(
           sortedOrders.map(async (order) => {
             try {
-              const [
-                { data: buyer },
-                { data: seller }
-              ] = await Promise.all([
-                supabase.from('profiles').select('full_name').eq('id', order.buyer_id).single(),
-                supabase.from('profiles').select('full_name').eq('id', order.seller_id).single(),
+              const [buyer, seller] = await Promise.all([
+                profilesService.getProfileById(order.buyer_id),
+                profilesService.getProfileById(order.seller_id)
               ])
               return {
                 ...order,
@@ -192,13 +159,13 @@ export default function AdminDashboardPage() {
 
       // Calculate category breakdown
       const catCounts: { [key: string]: number } = {}
-      allListings.forEach((listing: any) => {
+      listingsData.forEach((listing: { category_id?: string }) => {
         if (listing.category_id) {
           catCounts[listing.category_id] = (catCounts[listing.category_id] || 0) + 1
         }
       })
 
-      const breakdown = allCategories.map((cat: any) => {
+      const breakdown = allCategories.map((cat: { id: string; name: string }) => {
         const count = catCounts[cat.id] || 0
         const total = allListings.length || 1
         return {
@@ -214,7 +181,7 @@ export default function AdminDashboardPage() {
       const currentYear = new Date().getFullYear()
       const monthlyRevenue = Array(12).fill(0)
       
-      completedOrders.forEach((o: any) => {
+      completedOrders.forEach((o: { created_at: string; total_price?: number }) => {
         const date = new Date(o.created_at)
         if (date.getFullYear() === currentYear) {
           monthlyRevenue[date.getMonth()] += o.total_price || 0

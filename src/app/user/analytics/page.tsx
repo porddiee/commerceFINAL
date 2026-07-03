@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { listingsService, savedListingsService, ordersService } from '@/services'
 import {
   Eye, Heart, ShoppingCart, TrendingUp, TrendingDown,
   BarChart3, Package, ArrowRight, Sparkles, Loader2,
@@ -18,10 +18,12 @@ const STATUS_STYLES: Record<string, string> = {
   inactive: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
 }
 
+import type { LucideIcon } from 'lucide-react'
+
 function StatCard({
   icon: Icon, label, value, sub, gradient, trend,
 }: {
-  icon: any; label: string; value: string | number; sub: string; gradient: string; trend?: number
+  icon: LucideIcon; label: string; value: string | number; sub: string; gradient: string; trend?: number
 }) {
   return (
     <div className="rounded-2xl border border-border/60 bg-card p-5 flex gap-4 items-start hover:shadow-sm transition-shadow">
@@ -61,7 +63,6 @@ function RowSkeleton() {
 
 export default function AnalyticsPage() {
   const { user } = useAuthStore()
-  const supabase = createClient()
   const [analytics, setAnalytics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState('all')
@@ -75,36 +76,38 @@ export default function AnalyticsPage() {
     if (!user) return
     setLoading(true)
     try {
-      let query = supabase
-        .from('listings')
-        .select('id, title, price, views, created_at, status, images')
-        .eq('seller_id', user.id)
-        .order('created_at', { ascending: false })
-
+      const listingsData = await listingsService.getListingsBySeller(user.id)
+      
+      // Filter by time range
+      let filteredListings = listingsData
       if (timeRange !== 'all') {
         const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
-        const cutoff = new Date(Date.now() - days * 86400000).toISOString()
-        query = query.gte('created_at', cutoff)
+        const cutoff = new Date(Date.now() - days * 86400000)
+        filteredListings = listingsData.filter((l: { created_at: string }) => 
+          new Date(l.created_at) >= cutoff
+        )
+      }
+      
+      if (!filteredListings || filteredListings.length === 0) { 
+        setAnalytics([]); return 
       }
 
-      const { data: listingsData } = await query
-      if (!listingsData) { setAnalytics([]); return }
+      const listingIds = filteredListings.map((l: { id: string }) => l.id)
 
-      const listingIds = listingsData.map((l: any) => l.id)
-
-      const [{ data: savesData }, { data: ordersData }] = await Promise.all([
-        supabase.from('saved_listings').select('listing_id').in('listing_id', listingIds),
-        supabase.from('orders').select('listing_id').in('listing_id', listingIds),
+      // Get saves and orders for these listings
+      const [savesData, ordersData] = await Promise.all([
+        savedListingsService.getSavesByListingIds(listingIds),
+        ordersService.getOrdersByListingIds(listingIds),
       ])
 
       const savesCount: Record<string, number> = {}
-      savesData?.forEach((s: any) => { savesCount[s.listing_id] = (savesCount[s.listing_id] || 0) + 1 })
+      savesData?.forEach((s: { listing_id: string }) => { savesCount[s.listing_id] = (savesCount[s.listing_id] || 0) + 1 })
 
       const ordersCount: Record<string, number> = {}
-      ordersData?.forEach((o: any) => { ordersCount[o.listing_id] = (ordersCount[o.listing_id] || 0) + 1 })
+      ordersData?.forEach((o: { listing_id: string }) => { ordersCount[o.listing_id] = (ordersCount[o.listing_id] || 0) + 1 })
 
       setAnalytics(
-        listingsData.map((l: any) => ({
+        filteredListings.map((l: { id: string; created_at: string; title: string; price: number; views: number; status: string; images: string[] }) => ({
           ...l,
           saves: savesCount[l.id] || 0,
           orders: ordersCount[l.id] || 0,

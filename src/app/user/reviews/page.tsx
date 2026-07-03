@@ -4,24 +4,13 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { reviewsService, notificationsService } from '@/services'
+import { toast } from '@/hooks/use-toast'
+import type { Review } from '@/types'
 import { Star, MessageSquare, TrendingUp, Award, Send, X, ChevronDown, ChevronUp, FileText } from 'lucide-react'
 
-type Review = {
-  id: string
-  rating: number
-  comment: string
-  reply?: string
-  replied_at?: string
-  created_at: string
-  reviewer_id: string
-  reviewee_id: string
-  listing_id: string
-  reviewer?: { id: string; full_name: string } | null
-  listing?: { title: string } | null
-}
-
 function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' | 'lg' }) {
-  const sizeClasses = { sm: 'h-3.5 w-3.5', md: 'h-4 w-4', lg: 'h-5 w-5' }
+  const sizeClasses = { sm: 'h-3 w-3 sm:h-3.5 sm:w-3.5', md: 'h-4 w-4', lg: 'h-5 w-5' }
   return (
     <div className="flex gap-0.5">
       {[...Array(5)].map((_, i) => (
@@ -36,7 +25,15 @@ function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md
   )
 }
 
-function AvatarInitials({ name }: { name: string }) {
+function AvatarInitials({ name }: { name: string | null }) {
+  if (!name) {
+    return (
+      <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl sm:rounded-2xl bg-muted flex items-center justify-center flex-shrink-0">
+        <span className="text-muted-foreground text-xs sm:text-sm font-semibold">?</span>
+      </div>
+    )
+  }
+
   const initials = name
     .split(' ')
     .map((n) => n[0])
@@ -55,9 +52,9 @@ function AvatarInitials({ name }: { name: string }) {
 
   return (
     <div
-      className={`w-11 h-11 rounded-2xl bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center flex-shrink-0 shadow-sm`}
+      className={`w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center flex-shrink-0 shadow-sm`}
     >
-      <span className="text-white text-sm font-semibold">{initials}</span>
+      <span className="text-white text-xs sm:text-sm font-semibold">{initials}</span>
     </div>
   )
 }
@@ -65,41 +62,41 @@ function AvatarInitials({ name }: { name: string }) {
 function RatingBar({ count, total, rating }: { count: number; total: number; rating: number }) {
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
-    <div className="flex items-center gap-3 group">
-      <span className="text-xs text-muted-foreground w-4 text-right">{rating}</span>
-      <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+    <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 group">
+      <span className="text-[10px] sm:text-xs text-muted-foreground w-3 sm:w-4 text-right">{rating}</span>
+      <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+      <div className="flex-1 h-1 sm:h-1.5 bg-muted rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full transition-all duration-700 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs text-muted-foreground w-4">{count}</span>
+      <span className="text-[10px] sm:text-xs text-muted-foreground w-3 sm:w-4">{count}</span>
     </div>
   )
 }
 
 function ReviewCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-3 animate-pulse">
-      <div className="flex items-start gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-muted flex-shrink-0" />
-        <div className="flex-1 space-y-2">
+    <div className="rounded-2xl border border-border/50 bg-card p-3 sm:p-4 md:p-5 space-y-2 sm:space-y-3 animate-pulse">
+      <div className="flex items-start gap-2 sm:gap-3">
+        <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl sm:rounded-2xl bg-muted flex-shrink-0" />
+        <div className="flex-1 space-y-1.5 sm:space-y-2">
           <div className="flex justify-between">
-            <div className="h-4 bg-muted rounded w-1/3" />
-            <div className="h-3 bg-muted rounded w-20" />
+            <div className="h-3 sm:h-4 bg-muted rounded w-1/3" />
+            <div className="h-2.5 sm:h-3 bg-muted rounded w-16 sm:w-20" />
           </div>
-          <div className="h-3 bg-muted rounded w-1/2" />
-          <div className="flex gap-1">
+          <div className="h-2.5 sm:h-3 bg-muted rounded w-1/2" />
+          <div className="flex gap-0.5 sm:gap-1">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-3.5 w-3.5 bg-muted rounded" />
+              <div key={i} className="h-3 w-3 sm:h-3.5 sm:w-3.5 bg-muted rounded" />
             ))}
           </div>
         </div>
       </div>
-      <div className="space-y-2">
-        <div className="h-3 bg-muted rounded w-full" />
-        <div className="h-3 bg-muted rounded w-4/5" />
+      <div className="space-y-1.5 sm:space-y-2">
+        <div className="h-2.5 sm:h-3 bg-muted rounded w-full" />
+        <div className="h-2.5 sm:h-3 bg-muted rounded w-4/5" />
       </div>
     </div>
   )
@@ -122,40 +119,14 @@ export default function ReviewsPage() {
   const handleReply = async (reviewId: string) => {
     if (!user || !replyText.trim()) return
     try {
-      const { error } = await supabase.rpc('add_review_reply', {
-        review_id: reviewId,
-        reply_text: replyText.trim(),
-      })
-      if (error) throw error
-      
-      // Get review details to create notification
-      const { data: reviewData } = await supabase
-        .from('reviews')
-        .select('reviewer_id, listing_id, listings!inner(title)')
-        .eq('id', reviewId)
-        .single()
-      
-      if (reviewData) {
-        // Create notification for the reviewer
-        const { error: notificationError } = await supabase.from('notifications').insert({
-          user_id: reviewData.reviewer_id,
-          title: 'Seller Replied to Your Review',
-          content: `The seller replied to your review for "${reviewData.listings[0]?.title || 'your product'}".`,
-          link: '/user/reviews',
-          is_read: false,
-        })
-        
-        if (notificationError) {
-          console.error('Notification error:', notificationError)
-        }
-      }
+      await reviewsService.addReply(reviewId, replyText.trim())
       
       setReplyText('')
       setReplyingTo(null)
       fetchReviews()
-    } catch (error) {
-      console.error('Error replying to review:', error)
-      alert('Failed to reply to review')
+      toast({ title: 'Success', description: 'Reply sent successfully' })
+    } catch (error: unknown) {
+      toast({ title: 'Error', description: 'Failed to reply to review', variant: 'destructive' })
     }
   }
 
@@ -163,23 +134,8 @@ export default function ReviewsPage() {
     if (!user) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .or(`reviewer_id.eq.${user.id},reviewee_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-      if (error) throw error
-
-      const reviewsWithDetails = await Promise.all(
-        (data || []).map(async (review) => {
-          const [{ data: reviewer }, { data: listing }] = await Promise.all([
-            supabase.from('profiles').select('id, full_name').eq('id', review.reviewer_id).single(),
-            supabase.from('listings').select('title').eq('id', review.listing_id).single(),
-          ])
-          return { ...review, reviewer, listing }
-        })
-      )
-      setReviews(reviewsWithDetails)
+      const { received, given } = await reviewsService.getUserReviews(user.id)
+      setReviews([...received, ...given])
     } catch (error) {
       console.error('Error fetching reviews:', error)
     } finally {
@@ -219,7 +175,7 @@ export default function ReviewsPage() {
   ]
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-4xl mx-auto">
+    <div className="min-h-screen p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6 max-w-4xl mx-auto">
       {/* Page Header */}
       <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl border border-indigo-100 dark:border-indigo-900/40 bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10">
         <div className="absolute top-0 right-0 w-40 sm:w-56 h-40 sm:h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
@@ -237,34 +193,34 @@ export default function ReviewsPage() {
 
       {/* Stats Row */}
       {!loading && reviews.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4 animate-fade-in">
           {/* Average Rating */}
-          <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm flex-shrink-0">
-              <Star className="h-6 w-6 text-white fill-white" />
+          <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm flex-shrink-0">
+              <Star className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white fill-white" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-amber-600 dark:text-amber-400 leading-none">{avgRating}</p>
-              <p className="text-xs text-muted-foreground mt-1">Average Rating</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-amber-600 dark:text-amber-400 leading-none">{avgRating}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Average Rating</p>
             </div>
           </div>
 
           {/* Total Reviews */}
-          <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-5 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm flex-shrink-0">
-              <MessageSquare className="h-6 w-6 text-white" />
+          <div className="rounded-2xl border border-border/50 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-3 sm:p-4 md:p-5 flex items-center gap-2 sm:gap-3 md:gap-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm flex-shrink-0">
+              <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 text-white" />
             </div>
             <div>
-              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 leading-none">{received.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Reviews Received</p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-blue-600 dark:text-blue-400 leading-none">{received.length}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">Reviews Received</p>
             </div>
           </div>
 
           {/* Rating Breakdown */}
-          <div className="rounded-2xl border border-border/50 bg-card p-5 space-y-2">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Breakdown</p>
+          <div className="rounded-2xl border border-border/50 bg-card p-3 sm:p-4 md:p-5 space-y-1.5 sm:space-y-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
+              <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+              <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Breakdown</p>
             </div>
             {ratingCounts.map(({ star, count }) => (
               <RatingBar key={star} rating={star} count={count} total={received.length} />
@@ -274,12 +230,12 @@ export default function ReviewsPage() {
       )}
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl w-fit animate-fade-in">
+      <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl animate-fade-in overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex-shrink-0 ${
               activeTab === tab.id
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -287,7 +243,7 @@ export default function ReviewsPage() {
           >
             {tab.label}
             <span
-              className={`text-xs px-1.5 py-0.5 rounded-md font-semibold transition-colors ${
+              className={`text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded-md font-semibold transition-colors ${
                 activeTab === tab.id
                   ? 'bg-primary/10 text-primary'
                   : 'bg-muted text-muted-foreground'
@@ -333,29 +289,29 @@ export default function ReviewsPage() {
             return (
               <div
                 key={review.id}
-                className="group rounded-2xl border border-border/50 bg-card hover:border-border hover:shadow-sm transition-all duration-200 p-5 space-y-4"
+                className="group rounded-2xl border border-border/50 bg-card hover:border-border hover:shadow-sm transition-all duration-200 p-3 sm:p-4 md:p-5 space-y-2.5 sm:space-y-3 md:space-y-4"
                 style={{ animationDelay: `${index * 60}ms` }}
               >
                 {/* Top: Avatar + Meta */}
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2 sm:gap-3">
                   <AvatarInitials name={reviewerName} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm leading-tight">{reviewerName}</span>
+                    <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span className="font-semibold text-xs sm:text-sm leading-tight">{reviewerName}</span>
                           {isOwn && (
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                              <Award className="h-3 w-3" />
+                            <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                              <Award className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                               You
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 truncate max-w-[150px] sm:max-w-xs">
                           {review.listing?.title || 'Listing'}
                         </p>
                       </div>
-                      <span className="text-xs text-muted-foreground flex-shrink-0 pt-0.5">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground flex-shrink-0 pt-0.5">
                         {new Date(review.created_at).toLocaleDateString('en-US', {
                           month: 'short',
                           day: 'numeric',
@@ -363,29 +319,29 @@ export default function ReviewsPage() {
                         })}
                       </span>
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-1.5 sm:mt-2">
                       <StarRating rating={review.rating} size="sm" />
                     </div>
                   </div>
                 </div>
 
                 {/* Comment */}
-                <p className="text-sm text-foreground/80 leading-relaxed pl-14">{review.comment}</p>
+                <p className="text-xs sm:text-sm text-foreground/80 leading-relaxed pl-10 sm:pl-14">{review.comment}</p>
 
                 {/* Seller Reply */}
                 {review.reply && (
-                  <div className="pl-14">
+                  <div className="pl-10 sm:pl-14">
                     <button
                       onClick={() => toggleReplyExpand(review.id)}
-                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-2"
+                      className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground transition-colors mb-1.5 sm:mb-2"
                     >
-                      {isReplyExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                      {isReplyExpanded ? <ChevronUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> : <ChevronDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />}
                       Seller's Reply
                       <span className="text-muted-foreground/60">·</span>
                       <span>{new Date(review.replied_at!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     </button>
                     {isReplyExpanded && (
-                      <div className="rounded-xl bg-muted/60 border border-border/40 p-3.5 text-sm text-foreground/80 leading-relaxed">
+                      <div className="rounded-xl bg-muted/60 border border-border/40 p-2.5 sm:p-3.5 text-xs sm:text-sm text-foreground/80 leading-relaxed">
                         {review.reply}
                       </div>
                     )}
@@ -394,36 +350,36 @@ export default function ReviewsPage() {
 
                 {/* Reply Form */}
                 {canReply && (
-                  <div className="pl-14">
+                  <div className="pl-10 sm:pl-14">
                     {replyingTo === review.id ? (
-                      <div className="space-y-2 animate-fade-in">
+                      <div className="space-y-1.5 sm:space-y-2 animate-fade-in">
                         <textarea
                           placeholder="Write a thoughtful reply..."
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
-                          rows={3}
-                          className="w-full px-3.5 py-3 rounded-xl border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground"
+                          rows={2}
+                          className="w-full px-2.5 sm:px-3.5 py-2 sm:py-3 rounded-xl border border-input bg-background text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all placeholder:text-muted-foreground"
                         />
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5 sm:gap-2">
                           <Button
                             size="sm"
-                            className="gap-1.5 rounded-lg"
+                            className="gap-1 sm:gap-1.5 rounded-lg text-xs sm:text-sm"
                             onClick={() => handleReply(review.id)}
                             disabled={!replyText.trim()}
                           >
-                            <Send className="h-3.5 w-3.5" />
+                            <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             Submit Reply
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="gap-1.5 rounded-lg text-muted-foreground"
+                            className="gap-1 sm:gap-1.5 rounded-lg text-muted-foreground text-xs sm:text-sm"
                             onClick={() => {
                               setReplyingTo(null)
                               setReplyText('')
                             }}
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                             Cancel
                           </Button>
                         </div>
@@ -431,9 +387,9 @@ export default function ReviewsPage() {
                     ) : (
                       <button
                         onClick={() => setReplyingTo(review.id)}
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border rounded-lg px-3 py-1.5 transition-all hover:bg-muted/50"
+                        className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-medium text-muted-foreground hover:text-foreground border border-border/50 hover:border-border rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 transition-all hover:bg-muted/50"
                       >
-                        <MessageSquare className="h-3.5 w-3.5" />
+                        <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         Reply to review
                       </button>
                     )}

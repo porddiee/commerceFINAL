@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore, useCartStore } from '@/lib/store/auth'
+import { listingsService, savedListingsService, profilesService, reviewsService } from '@/services'
 import { 
   MapPin, 
   Eye, 
@@ -19,7 +20,8 @@ import {
   Sparkles,
   Info,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -35,6 +37,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
   const supabase = createClient()
   const [listing, setListing] = useState<any>(null)
   const [seller, setSeller] = useState<any>(null)
+  const [reviews, setReviews] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isSaved, setIsSaved] = useState(false)
@@ -44,6 +47,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
 
   useEffect(() => {
     fetchListing()
+    fetchReviews()
     if (user) {
       checkIfSaved()
     }
@@ -52,15 +56,20 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
   const checkIfSaved = async () => {
     if (!user) return
     try {
-      const { data } = await supabase
-        .from('saved_listings')
-        .select('listing_id')
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-        .single()
-      setIsSaved(!!data)
+      const isSaved = await savedListingsService.isListingSaved(user.id, listingId)
+      setIsSaved(isSaved)
     } catch (error) {
       setIsSaved(false)
+    }
+  }
+
+  const fetchReviews = async () => {
+    try {
+      const reviewsData = await reviewsService.getReviewsByListingWithDetails(listingId)
+      setReviews(reviewsData)
+    } catch (error) {
+      console.error('Error fetching reviews:', error)
+      setReviews([])
     }
   }
 
@@ -79,103 +88,50 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
       return
     }
 
-    if (isSaved) {
-      // Remove from cart
-      const { error } = await supabase
-        .from('saved_listings')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      if (error) {
-        console.error('Error removing from cart:', error)
-        setErrorMessage('Failed to remove from cart')
-        setShowErrorNotification(true)
-        setTimeout(() => setShowErrorNotification(false), 3000)
-      } else {
-        setIsSaved(false)
-        decrementCart()
-      }
-    } else {
-      // Add to cart
-      const { error } = await supabase
-        .from('saved_listings')
-        .insert({
-          user_id: user.id,
-          listing_id: listingId
-        })
-      if (error) {
-        console.error('Error adding to cart:', error)
-        setErrorMessage('Failed to add to cart')
-        setShowErrorNotification(true)
-        setTimeout(() => setShowErrorNotification(false), 3000)
-      } else {
-        setIsSaved(true)
+    try {
+      const { saved } = await savedListingsService.toggleSavedListing(user.id, listingId)
+      setIsSaved(saved)
+      if (saved) {
         incrementCart()
         setShowCartNotification(true)
         setTimeout(() => setShowCartNotification(false), 3000)
+      } else {
+        decrementCart()
       }
+    } catch (error) {
+      console.error('Error toggling saved listing:', error)
+      setErrorMessage(isSaved ? 'Failed to remove from cart' : 'Failed to add to cart')
+      setShowErrorNotification(true)
+      setTimeout(() => setShowErrorNotification(false), 3000)
     }
   }
 
   const fetchListing = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('id', listingId)
-        .eq('status', 'active')
-        .single()
+      const listing = await listingsService.getListingById(listingId)
+      if (!listing) {
+        // Listing not found - handle gracefully (sold, deactivated, or deleted)
+        setListing(null)
+        setSeller(null)
+        return
+      }
+      setListing(listing)
 
-      if (error) throw error
+      // Fetch seller profile
+      const seller = await profilesService.getProfileById(listing.seller_id)
+      setSeller(seller)
 
-      if (data) {
-        setListing(data)
-        
-        // Fetch seller details
-        const { data: sellerData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.seller_id)
-          .single()
-        setSeller(sellerData)
-        
-        // Increment view count using database function with user tracking
-        const userId = user?.id || null
-        let ipAddress = null
-        try {
-          const response = await fetch('https://api.ipify.org?format=json')
-          const ipData = await response.json()
-          ipAddress = ipData.ip
-        } catch (error) {
-          // Failed to fetch IP address
-        }
-        
-        try {
-          const { error: viewError } = await supabase.rpc('increment_listing_views', { 
-            p_listing_id: listingId,
-            p_user_id: userId,
-            p_ip_address: ipAddress
-          })
-          if (viewError) {
-            console.error('Error incrementing views:', viewError.message, viewError)
-          } else {
-            // Refresh listing data to get updated view count
-            const { data: updatedListing } = await supabase
-              .from('listings')
-              .select('views')
-              .eq('id', listingId)
-              .single()
-            if (updatedListing) {
-              setListing((prev: any) => ({ ...prev, views: updatedListing.views }))
-            }
-          }
-        } catch (err) {
-          console.error('Error in view increment RPC:', err)
-        }
+      // Increment view count (don't throw error if this fails)
+      try {
+        await listingsService.incrementViews(listingId)
+      } catch (viewError) {
+        // Silently ignore view increment errors
       }
     } catch (error) {
-      console.error('Error fetching product:', error)
+      // Handle any other errors gracefully
+      setListing(null)
+      setSeller(null)
     } finally {
       setLoading(false)
     }
@@ -214,7 +170,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
       return
     }
 
-    router.push(`/user/messages?seller=${seller?.id}`)
+    router.push(`/user/messages?seller=${seller?.id}&listing=${listingId}`)
   }
 
   if (loading) {
@@ -252,7 +208,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/20 py-8">
       {/* Toast Notifications */}
       {showCartNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-25 right-4 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 font-semibold text-sm">
             <CheckCircle className="w-4 h-4 text-emerald-100" />
             <span>Successfully added to cart!</span>
@@ -261,7 +217,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
       )}
       
       {showErrorNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-25 right-4 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="bg-rose-600 text-white px-5 py-3 rounded-xl shadow-xl flex items-center gap-3 font-semibold text-sm">
             <AlertTriangle className="w-4 h-4 text-rose-100" />
             <span>{errorMessage}</span>
@@ -278,7 +234,7 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
           onClick={() => router.back()}
         >
           <ArrowLeft className="mr-2 h-4 w-4 text-slate-400" />
-          Back to Listings
+          Back
         </Button>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -494,6 +450,67 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
                   <span className="text-amber-550 shrink-0 font-bold">✓</span>
                   <span><strong>Cash or Secure COD</strong>: Avoid sending money beforehand. Settle transactions securely in person.</span>
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Reviews Section */}
+            <Card className="border border-slate-200 dark:border-slate-850 rounded-3xl shadow-sm bg-white dark:bg-slate-950 overflow-hidden">
+              <CardHeader className="p-6 border-b border-slate-100 dark:border-slate-900 pb-5">
+                <CardTitle className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-widest flex items-center gap-2">
+                  <Star className="h-4.5 w-4.5 text-indigo-500" />
+                  Reviews ({reviews.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                {reviews.length === 0 ? (
+                  <div className="text-center py-8 text-slate-400 text-sm font-semibold">
+                    No reviews yet. Be the first to review this product!
+                  </div>
+                ) : (
+                  reviews.map((review) => (
+                    <div key={review.id} className="border-b border-slate-100 dark:border-slate-900 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={review.reviewer?.avatar_url} alt={review.reviewer?.full_name} />
+                          <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-blue-500 text-white font-bold text-xs">
+                            {review.reviewer?.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {review.reviewer?.full_name || 'Anonymous'}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-3.5 w-3.5 ${
+                                    i < review.rating
+                                      ? 'text-yellow-400 fill-yellow-400'
+                                      : 'text-slate-300 dark:text-slate-600'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-400 mb-2">
+                            {new Date(review.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                          <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                            {review.comment}
+                          </p>
+                          {review.reply && (
+                            <div className="mt-3 bg-slate-50 dark:bg-slate-900/30 rounded-lg p-3 border border-slate-200 dark:border-slate-800">
+                              <p className="text-xs font-bold text-slate-500 mb-1">Seller Reply:</p>
+                              <p className="text-sm text-slate-700 dark:text-slate-300">{review.reply}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>

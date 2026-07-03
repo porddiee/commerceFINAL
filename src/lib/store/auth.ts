@@ -46,11 +46,27 @@ interface CartState {
   setCartCount: (count: number) => void
   incrementCart: () => void
   decrementCart: () => void
+  syncCartCount: (userId: string) => Promise<void>
 }
 
-export const useCartStore = create<CartState>((set) => ({
+export const useCartStore = create<CartState>((set, get) => ({
   cartCount: 0,
   setCartCount: (count) => set({ cartCount: count }),
   incrementCart: () => set((state) => ({ cartCount: state.cartCount + 1 })),
   decrementCart: () => set((state) => ({ cartCount: Math.max(0, state.cartCount - 1) })),
+  syncCartCount: async (userId) => {
+    try {
+      const { createClient } = await import('@/lib/supabase/client')
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from('saved_listings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+      if (!error && count !== null) {
+        set({ cartCount: count })
+      }
+    } catch (error) {
+      console.error('Error syncing cart count:', error)
+    }
+  },
 }))

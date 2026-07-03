@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
+import type { Profile } from '@/types'
 import { 
   Search, 
   Shield, 
@@ -30,10 +31,10 @@ import {
 
 export default function AdminUsersPage() {
   const supabase = createClient()
-  const [users, setUsers] = useState<any[]>([])
+  const [users, setUsers] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   
   // Filter states
@@ -64,7 +65,7 @@ export default function AdminUsersPage() {
   const toggleVerification = async (userId: string, currentStatus: boolean) => {
     try {
       // If verifying, we also update verification_status to 'approved', otherwise back to 'none'
-      const updates: any = { is_verified_seller: !currentStatus }
+      const updates: { is_verified_seller: boolean; verification_status?: string } = { is_verified_seller: !currentStatus }
       if (!currentStatus) {
         updates.verification_status = 'approved'
       } else {
@@ -82,19 +83,19 @@ export default function AdminUsersPage() {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u))
       
       if (selectedUser?.id === userId) {
-        setSelectedUser((prev: any) => ({ ...prev, ...updates }))
+        setSelectedUser((prev: Profile | null) => prev ? { ...prev, ...updates } : null)
       }
     } catch (error) {
       console.error('Error updating verification status:', error)
     }
   }
 
-  const handleUserClick = (user: any) => {
+  const handleUserClick = (user: Profile) => {
     setSelectedUser(user)
     setShowDetailModal(true)
   }
 
-  const getVerificationRequirements = (user: any) => {
+  const getVerificationRequirements = (user: Profile) => {
     return [
       { key: 'full_name', label: 'Full Name', value: user.full_name, icon: User },
       { key: 'email', label: 'Email', value: user.email, icon: Mail },
@@ -104,7 +105,7 @@ export default function AdminUsersPage() {
     ]
   }
 
-  const canVerify = (user: any) => {
+  const canVerify = (user: Profile) => {
     // Basic verification requirements check (has name, email, and at least some info)
     return !!(user.full_name && user.email)
   }

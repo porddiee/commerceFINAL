@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { toast } from '@/hooks/use-toast'
 import { ShoppingBag, Upload, X, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import { categoriesService, listingsService } from '@/services'
+import { createClient } from '@/lib/supabase/client'
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -39,45 +41,40 @@ export default function EditProductPage() {
   }, [])
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase.from('categories').select('*').order('name')
-    if (error) {
+    try {
+      const data = await categoriesService.getAllCategories()
+      setCategories(data)
+    } catch (error) {
       console.error('Error fetching categories:', error)
-    } else {
-      setCategories(data || [])
     }
   }
 
   const fetchListing = async () => {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('*')
-      .eq('id', params.id)
-      .single()
-
-    if (error) {
+    try {
+      const data = await listingsService.getListingById(params.id as string)
+      if (data) {
+        const listingData = data as any
+        setFormData({
+          title: listingData.title || '',
+          description: listingData.description || '',
+          price: listingData.price?.toString() || '',
+          category_id: listingData.category_id || '',
+          condition: listingData.condition || 'good',
+          location: listingData.location || '',
+          buy_type: listingData.buy_type || 'buy_now',
+          quantity: listingData.quantity || 1,
+        })
+        setExistingImages(listingData.images || [])
+      }
+    } catch (error) {
       console.error('Error fetching listing:', error)
-      return
-    }
-
-    if (data) {
-      setFormData({
-        title: data.title,
-        description: data.description,
-        price: data.price.toString(),
-        category_id: data.category_id,
-        condition: data.condition,
-        location: data.location,
-        buy_type: data.buy_type || 'buy_now',
-        quantity: data.quantity !== undefined && data.quantity !== null ? data.quantity : 1,
-      })
-      setExistingImages(data.images || [])
     }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length > 5) {
-      alert('You can only upload up to 5 images')
+      toast({ title: 'Error', description: 'You can only upload up to 5 images', variant: 'destructive' })
       return
     }
     setImageFiles(files)
@@ -135,30 +132,23 @@ export default function EditProductPage() {
       const uploadedImageUrls = await uploadImages()
       const allImages = [...existingImages, ...uploadedImageUrls]
 
-      const { error } = await supabase
-        .from('listings')
-        .update({
-          category_id: formData.category_id,
-          title: formData.title,
-          description: formData.description,
-          price: parseFloat(formData.price),
-          condition: formData.condition,
-          location: formData.location,
-          images: allImages,
-          buy_type: 'buy_now',
-          quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
-        })
-        .eq('id', params.id)
-
-      if (error) {
-        console.error('Supabase error:', error)
-        throw error
-      }
+      await listingsService.updateListing(params.id as string, {
+        category_id: formData.category_id,
+        title: formData.title,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        condition: formData.condition,
+        location: formData.location,
+        images: allImages,
+      })
       
       router.push('/user/products')
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating product:', error)
-      alert(`Failed to update product: ${error?.message || 'Unknown error'}`)
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Unknown error'
+      toast({ title: 'Error', description: `Failed to update product: ${errorMessage}`, variant: 'destructive' })
     } finally {
       setLoading(false)
     }

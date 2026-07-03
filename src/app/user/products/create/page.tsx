@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { listingsService, categoriesService } from '@/services'
+import { toast } from '@/hooks/use-toast'
 import {
   ShoppingBag, Upload, X, ArrowLeft, AlertCircle,
   Sparkles, MapPin, Tag, DollarSign, FileText,
@@ -74,37 +76,22 @@ export default function CreateProductPage() {
   }, [formData.category_id, formData.condition])
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').order('name')
-    setCategories(data || [])
+    const data = await categoriesService.getAllCategories()
+    setCategories(data)
   }
 
   const fetchPriceSuggestion = async () => {
     if (!formData.category_id || !formData.condition) return
     try {
-      const { data } = await supabase
-        .from('listings')
-        .select('price')
-        .eq('category_id', formData.category_id)
-        .eq('condition', formData.condition)
-        .eq('status', 'active')
-        .limit(50)
-      if (data && data.length > 0) {
-        const prices = data.map((l: any) => l.price)
-        setPriceSuggestion({
-          min: Math.min(...prices),
-          avg: prices.reduce((a: number, b: number) => a + b, 0) / prices.length,
-          max: Math.max(...prices),
-        })
-      } else {
-        setPriceSuggestion(null)
-      }
+      const suggestion = await listingsService.getPriceSuggestion(formData.category_id, formData.condition)
+      setPriceSuggestion(suggestion)
     } catch (e) { console.error(e) }
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (imageFiles.length + files.length > 5) {
-      alert('You can only upload up to 5 images')
+      toast({ title: 'Error', description: 'You can only upload up to 5 images', variant: 'destructive' })
       return
     }
     const newFiles = [...imageFiles, ...files].slice(0, 5)
@@ -154,7 +141,7 @@ export default function CreateProductPage() {
     setLoading(true)
     try {
       const uploadedUrls = await uploadImages()
-      const { error } = await supabase.from('listings').insert({
+      await listingsService.createListing({
         seller_id: user.id,
         category_id: formData.category_id,
         title: formData.title,
@@ -163,43 +150,41 @@ export default function CreateProductPage() {
         condition: formData.condition,
         location: formData.location,
         images: uploadedUrls,
-        status: 'active',
-        buy_type: 'buy_now',
         quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
       })
-      if (error) throw error
       setSuccess(true)
-      setTimeout(() => router.push('/user/products'), 1500)
-    } catch (error: any) {
+      setTimeout(() => router.back(), 1500)
+    } catch (error: unknown) {
       console.error(error)
-      alert(`Failed to create product: ${error?.message || 'Unknown error'}`)
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Unknown error'
+      toast({ title: 'Error', description: `Failed to create product: ${errorMessage}`, variant: 'destructive' })
     } finally {
       setLoading(false)
     }
   }
 
-  const update = (key: string, value: any) => setFormData((prev) => ({ ...prev, [key]: value }))
+  const update = (key: string, value: unknown) => setFormData((prev) => ({ ...prev, [key]: value }))
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 max-w-5xl mx-auto space-y-3 sm:space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" asChild className="rounded-xl flex-shrink-0 hover:bg-indigo-50 dark:hover:bg-indigo-950/20">
-          <Link href="/user/products">
-            <ArrowLeft className="h-5 w-5 text-slate-500" />
-          </Link>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-xl flex-shrink-0 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 h-8 w-8 sm:h-10 sm:w-10">
+          <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500" />
         </Button>
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Add New Product</h1>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">Publish a new item to the SuriMart marketplace</p>
+          <h1 className="text-lg sm:text-xl md:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">Add New Product</h1>
+          <p className="text-[10px] sm:text-xs font-semibold text-slate-500 mt-0.5">Publish a new item to the SuriMart marketplace</p>
         </div>
       </div>
 
       {/* Verification warning */}
       {!profile?.is_verified_seller && (
-        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/10">
-          <AlertCircle className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+        <div className="flex items-start gap-2 sm:gap-3 px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/10">
+          <AlertCircle className="h-3.5 w-3.5 sm:h-4.5 sm:w-4.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <p className="text-[10px] sm:text-xs font-semibold text-amber-800 dark:text-amber-300">
             Verify your seller account to make listings visible to the public.{' '}
             <Link href="/user/settings" className="underline font-bold hover:text-amber-900 dark:hover:text-amber-200">
               Verify Identity Now →
@@ -210,31 +195,31 @@ export default function CreateProductPage() {
 
       {/* Success state */}
       {success && (
-        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20">
-          <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20">
+          <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 flex-shrink-0" />
+          <p className="text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-300">
             Product published! Redirecting to your listings…
           </p>
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6">
           {/* ── Left: Main fields (3 cols) ── */}
-          <div className="lg:col-span-3 space-y-5">
+          <div className="lg:col-span-3 space-y-3 sm:space-y-4 md:space-y-5">
 
             {/* Basic Info Card */}
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
-                <h2 className="font-bold text-sm flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-indigo-500" />
+            <div className="rounded-xl sm:rounded-2xl border border-border/60 bg-card overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
+                <h2 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                  <FileText className="h-3 w-3 sm:h-4 sm:w-4 text-indigo-500" />
                   Basic Information
                 </h2>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
                 {/* Title */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <Label htmlFor="title" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Product Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -243,13 +228,13 @@ export default function CreateProductPage() {
                     onChange={(e) => update('title', e.target.value)}
                     placeholder="e.g. Brand New Mountain Bike"
                     required
-                    className="h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold"
+                    className="h-9 sm:h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold text-xs sm:text-sm"
                   />
                 </div>
 
                 {/* Description */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="description" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <Label htmlFor="description" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Description <span className="text-red-500">*</span>
                   </Label>
                   <textarea
@@ -257,24 +242,24 @@ export default function CreateProductPage() {
                     value={formData.description}
                     onChange={(e) => update('description', e.target.value)}
                     placeholder="Write detailed specs, size, history, reason for selling…"
-                    rows={5}
+                    rows={3}
                     required
-                    className="w-full px-3.5 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-background text-sm resize-none focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-muted-foreground font-medium"
+                    className="w-full px-2.5 sm:px-3.5 py-2 sm:py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-background text-xs sm:text-sm resize-none focus:outline-none focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all placeholder:text-muted-foreground font-medium"
                   />
                 </div>
 
                 {/* Category */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <Label htmlFor="category" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Category <span className="text-red-500">*</span>
                   </Label>
                   <Select value={formData.category_id} onValueChange={(v) => update('category_id', v)} required>
-                    <SelectTrigger id="category" className="h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 font-semibold">
+                    <SelectTrigger id="category" className="h-9 sm:h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 font-semibold text-xs sm:text-sm">
                       <SelectValue placeholder="Select a category…" />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl">
                       {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id} className="font-semibold text-xs">{cat.name}</SelectItem>
+                        <SelectItem key={cat.id} value={cat.id} className="font-semibold text-[10px] sm:text-xs">{cat.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -283,22 +268,22 @@ export default function CreateProductPage() {
             </div>
 
             {/* Pricing & Details Card */}
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-              <div className="px-6 py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
-                <h2 className="font-bold text-sm flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-indigo-500" />
+            <div className="rounded-xl sm:rounded-2xl border border-border/60 bg-card overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
+                <h2 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                  <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-indigo-500" />
                   Pricing & Details
                 </h2>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4">
                   {/* Price */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="price" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <Label htmlFor="price" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                       Price (PHP) <span className="text-red-500">*</span>
                     </Label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-sm">₱</span>
+                      <span className="absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground font-bold text-[10px] sm:text-sm">₱</span>
                       <Input
                         id="price"
                         type="number"
@@ -307,14 +292,14 @@ export default function CreateProductPage() {
                         placeholder="0.00"
                         required
                         min="0"
-                        className="h-11 pl-8 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-bold"
+                        className="h-9 sm:h-11 pl-6 sm:pl-8 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-bold text-xs sm:text-sm"
                       />
                     </div>
                   </div>
 
                   {/* Quantity */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="quantity" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  <div className="space-y-1 sm:space-y-1.5">
+                    <Label htmlFor="quantity" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                       Quantity
                     </Label>
                     <Input
@@ -336,19 +321,19 @@ export default function CreateProductPage() {
                         }
                       }}
                       min="1"
-                      className="h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold"
+                      className="h-9 sm:h-11 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold text-xs sm:text-sm"
                     />
                   </div>
                 </div>
 
                 {/* Market price insight */}
                 {priceSuggestion && (
-                  <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/60 dark:bg-indigo-950/20 px-4 py-3 space-y-1">
-                    <p className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3" />
+                  <div className="rounded-xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/60 dark:bg-indigo-950/20 px-3 sm:px-4 py-2 sm:py-3 space-y-0.5 sm:space-y-1">
+                    <p className="text-[9px] sm:text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-1 sm:gap-1.5">
+                      <Sparkles className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                       Market Price Intelligence
                     </p>
-                    <div className="flex items-center gap-4 text-xs font-semibold">
+                    <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-semibold">
                       <span className="text-muted-foreground">Min <span className="text-foreground">₱{priceSuggestion.min.toLocaleString()}</span></span>
                       <span className="text-indigo-600 dark:text-indigo-400 font-bold">Avg ₱{Math.round(priceSuggestion.avg).toLocaleString()}</span>
                       <span className="text-muted-foreground">Max <span className="text-foreground">₱{priceSuggestion.max.toLocaleString()}</span></span>
@@ -357,17 +342,17 @@ export default function CreateProductPage() {
                 )}
 
                 {/* Condition pill picker */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <Label className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Condition <span className="text-red-500">*</span>
                   </Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
                     {CONDITIONS.map((c) => (
                       <button
                         key={c.value}
                         type="button"
                         onClick={() => update('condition', c.value)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-150 ${
+                        className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl text-[10px] sm:text-xs font-bold border transition-all duration-150 ${
                           formData.condition === c.value
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'border-border text-muted-foreground hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400'
@@ -380,19 +365,19 @@ export default function CreateProductPage() {
                 </div>
 
                 {/* Location */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="location" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                <div className="space-y-1 sm:space-y-1.5">
+                  <Label htmlFor="location" className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">
                     Location <span className="text-red-500">*</span>
                   </Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <MapPin className="absolute left-2.5 sm:left-3.5 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground pointer-events-none" />
                     <Input
                       id="location"
                       value={formData.location}
                       onChange={(e) => update('location', e.target.value)}
                       placeholder="e.g. Surigao City Plaza"
                       required
-                      className="h-11 pl-10 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold"
+                      className="h-9 sm:h-11 pl-8 sm:pl-10 rounded-xl border-2 border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 transition-all font-semibold text-xs sm:text-sm"
                     />
                   </div>
                 </div>
@@ -401,22 +386,22 @@ export default function CreateProductPage() {
           </div>
 
           {/* ── Right: Images + Submit (2 cols) ── */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4 md:space-y-5">
             {/* Image upload card */}
-            <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-              <div className="px-5 py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
-                <h2 className="font-bold text-sm flex items-center gap-2">
-                  <ImageIcon className="h-4 w-4 text-indigo-500" />
+            <div className="rounded-xl sm:rounded-2xl border border-border/60 bg-card overflow-hidden">
+              <div className="px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-4 border-b border-border/50 bg-gradient-to-r from-indigo-50/60 to-blue-50/60 dark:from-indigo-950/20 dark:to-blue-950/20">
+                <h2 className="font-bold text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                  <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 text-indigo-500" />
                   Photos
-                  <span className="text-[10px] text-muted-foreground font-normal ml-auto">
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground font-normal ml-auto">
                     {imageFiles.length}/5
                   </span>
                 </h2>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-3 sm:p-4 md:p-5 space-y-3 sm:space-y-4">
                 {/* Drop zone */}
                 {imageFiles.length < 5 && (
-                  <label className="flex flex-col items-center gap-2.5 px-4 py-7 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center hover:border-indigo-400 hover:bg-indigo-50/30 dark:hover:border-indigo-700 dark:hover:bg-indigo-950/10 transition-all cursor-pointer group">
+                  <label className="flex flex-col items-center gap-1.5 sm:gap-2.5 px-3 sm:px-4 py-5 sm:py-7 rounded-xl sm:rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-center hover:border-indigo-400 hover:bg-indigo-50/30 dark:hover:border-indigo-700 dark:hover:bg-indigo-950/10 transition-all cursor-pointer group">
                     <input
                       type="file"
                       accept="image/*"
@@ -424,25 +409,25 @@ export default function CreateProductPage() {
                       onChange={handleImageChange}
                       className="hidden"
                     />
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                      <Upload className="h-5 w-5 text-white" />
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                      <Upload className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Click to upload photos</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Up to 5 images • JPG, PNG, WebP</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-300">Click to upload photos</p>
+                      <p className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5">Up to 5 images • JPG, PNG, WebP</p>
                     </div>
                   </label>
                 )}
 
                 {/* Image previews grid */}
                 {imagePreviews.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                     {imagePreviews.map((src, i) => (
                       <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border/60 group">
                         <Image src={src} alt={`Preview ${i + 1}`} fill className="object-cover" sizes="120px" />
                         {/* Primary badge */}
                         {i === 0 && (
-                          <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 bg-indigo-600 text-white text-[9px] font-bold rounded-md">
+                          <div className="absolute bottom-1 sm:bottom-1.5 left-1 sm:left-1.5 px-1 sm:px-1.5 py-0.5 bg-indigo-600 text-white text-[8px] sm:text-[9px] font-bold rounded-md">
                             Main
                           </div>
                         )}
@@ -450,24 +435,24 @@ export default function CreateProductPage() {
                         <button
                           type="button"
                           onClick={() => removeImage(i)}
-                          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                          className="absolute top-1 sm:top-1.5 right-1 sm:right-1.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <X className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-                <p className="text-[10px] text-muted-foreground text-center">
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground text-center">
                   First image will be the main cover. Drag to reorder.
                 </p>
               </div>
             </div>
 
             {/* Tips card */}
-            <div className="rounded-2xl border border-blue-200/60 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/10 p-5 space-y-3">
-              <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" />
+            <div className="rounded-xl sm:rounded-2xl border border-blue-200/60 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/10 p-3 sm:p-4 md:p-5 space-y-2 sm:space-y-3">
+              <p className="text-[10px] sm:text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 Listing Tips
               </p>
               {[
@@ -476,8 +461,8 @@ export default function CreateProductPage() {
                 'Set a fair price using the market data',
                 'Include meetup details in description',
               ].map((tip) => (
-                <p key={tip} className="text-[11px] text-blue-800/80 dark:text-blue-300/70 flex items-start gap-2 font-medium">
-                  <CheckCircle className="h-3.5 w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <p key={tip} className="text-[10px] sm:text-[11px] text-blue-800/80 dark:text-blue-300/70 flex items-start gap-1.5 sm:gap-2 font-medium">
+                  <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500 flex-shrink-0 mt-0.5" />
                   {tip}
                 </p>
               ))}
@@ -487,14 +472,14 @@ export default function CreateProductPage() {
             <Button
               type="submit"
               disabled={loading || uploading || success}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold shadow-lg shadow-indigo-500/25 hover:scale-[1.01] active:scale-[0.99] transition-all gap-2 disabled:opacity-60"
+              className="w-full h-10 sm:h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold shadow-lg shadow-indigo-500/25 hover:scale-[1.01] active:scale-[0.99] transition-all gap-1.5 sm:gap-2 disabled:opacity-60 text-xs sm:text-sm"
             >
               {loading || uploading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />{uploading ? 'Uploading photos…' : 'Creating listing…'}</>
+                <><Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />{uploading ? 'Uploading photos…' : 'Creating listing…'}</>
               ) : success ? (
-                <><CheckCircle className="h-4 w-4" />Published!</>
+                <><CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />Published!</>
               ) : (
-                <><ShoppingBag className="h-4 w-4" />Publish to Marketplace</>
+                <><ShoppingBag className="h-3 w-3 sm:h-4 sm:w-4" />Publish to Marketplace</>
               )}
             </Button>
           </div>

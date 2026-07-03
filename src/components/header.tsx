@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import type { Notification } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useCartStore } from '@/lib/store/auth'
 import { createClient } from '@/lib/supabase/client'
+import { notificationsService, savedListingsService } from '@/services'
 import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -31,13 +33,8 @@ export function Header() {
   const fetchNotifications = async () => {
     if (!user) return
     try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20)
-      setNotifications(data || [])
+      const data = await notificationsService.getNotificationsByUser(user.id)
+      setNotifications(data)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     }
@@ -46,11 +43,8 @@ export function Header() {
   const fetchCartCount = async () => {
     if (!user) return
     try {
-      const { data } = await supabase
-        .from('saved_listings')
-        .select('id')
-        .eq('user_id', user.id)
-      setCartCount(data?.length || 0)
+      const data = await savedListingsService.getSavedListingsByUser(user.id)
+      setCartCount(data.length)
     } catch (error) {
       console.error('Error fetching cart count:', error)
     }
@@ -58,24 +52,18 @@ export function Header() {
 
   const handleDismissNotification = async (notificationId: string) => {
     try {
-      await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', notificationId)
+      await notificationsService.deleteNotification(notificationId)
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
     } catch (error) {
       console.error('Error dismissing notification:', error)
     }
   }
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: Notification) => {
     // Mark as read
     if (!notification.is_read) {
       try {
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', notification.id)
+        await notificationsService.updateNotification(notification.id, { is_read: true })
         setNotifications(prev =>
           prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
         )
@@ -87,6 +75,18 @@ export function Header() {
     if (notification.link) {
       router.push(notification.link)
       setShowNotifications(false)
+    }
+  }
+
+  const markAllAsRead = async () => {
+    if (!user) return
+    try {
+      await notificationsService.markAllAsRead(user.id)
+      setNotifications(prev =>
+        prev.map(n => ({ ...n, is_read: true }))
+      )
+    } catch (error) {
+      console.error('Error marking all as read:', error)
     }
   }
 
@@ -109,6 +109,18 @@ export function Header() {
         'postgres_changes',
         {
           event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchNotifications()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
           schema: 'public',
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
@@ -219,64 +231,76 @@ export function Header() {
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md p-2 shadow-xl z-50 mt-1" align="end" forceMount>
-                  <DropdownMenuLabel className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1.5">
-                    <Bell className="h-3.5 w-3.5 text-indigo-500" />
-                    Notifications
+                <DropdownMenuContent className="w-72 sm:w-80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md p-2 shadow-xl z-50 mt-1" align="end" forceMount>
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <DropdownMenuLabel className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5 p-0">
+                      <Bell className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-indigo-500" />
+                      Notifications
+                      {unreadCount > 0 && (
+                        <span className="ml-1 text-[9px] sm:text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </DropdownMenuLabel>
                     {unreadCount > 0 && (
-                      <span className="ml-auto text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                        {unreadCount} new
-                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={markAllAsRead}
+                        className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 rounded-full"
+                      >
+                        <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                      </Button>
                     )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="my-1.5" />
-                  <div className="max-h-[300px] overflow-y-auto space-y-1 pr-1">
+                  </div>
+                  <DropdownMenuSeparator className="my-1 sm:my-1.5" />
+                  <div className="max-h-[250px] sm:max-h-[300px] overflow-y-auto space-y-1 pr-1">
                     {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground font-medium">
+                      <div className="p-3 sm:p-4 text-center text-[10px] sm:text-xs text-muted-foreground font-medium">
                         No notifications yet
                       </div>
                     ) : (
                       notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-indigo-500/5 transition-colors group relative cursor-pointer ${
+                          className={`flex items-start gap-2 sm:gap-2.5 p-2 sm:p-2.5 rounded-lg hover:bg-indigo-500/5 transition-colors group relative cursor-pointer ${
                             !notification.is_read ? 'bg-indigo-50/50 dark:bg-indigo-950/20' : ''
                           }`}
                           onClick={() => handleNotificationClick(notification)}
                         >
                           <div className="relative flex-shrink-0 mt-0.5">
-                            <Check className={`h-4 w-4 ${!notification.is_read ? 'text-indigo-500' : 'text-slate-400'}`} />
+                            <Check className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${!notification.is_read ? 'text-indigo-500' : 'text-slate-400'}`} />
                             {!notification.is_read && (
-                              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-indigo-500 rounded-full" />
+                              <span className="absolute -top-0.5 -right-0.5 h-1.5 sm:h-2 w-1.5 sm:w-2 bg-indigo-500 rounded-full" />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-xs font-bold truncate ${!notification.is_read ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
+                            <p className={`text-[10px] sm:text-xs font-bold truncate ${!notification.is_read ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
                               {notification.title || 'Notification'}
                             </p>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal line-clamp-2">
+                            <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-450 mt-0.5 leading-normal line-clamp-2">
                               {notification.message || notification.content}
                             </p>
-                            <p className="text-[10px] text-slate-400 mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">{new Date(notification.created_at).toLocaleDateString()}</p>
                           </div>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/20 text-slate-400 hover:text-rose-500 flex-shrink-0 transition-colors opacity-0 group-hover:opacity-100"
+                            className="h-4 w-4 sm:h-5 sm:w-5 rounded-full hover:bg-rose-50 dark:hover:bg-rose-950/20 text-slate-400 hover:text-rose-500 flex-shrink-0 transition-colors opacity-0 group-hover:opacity-100"
                             onClick={(e) => {
                               e.stopPropagation()
                               handleDismissNotification(notification.id)
                             }}
                           >
-                            <X className="h-3.5 w-3.5" />
+                            <X className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
                           </Button>
                         </div>
                       ))
                     )}
                   </div>
-                  <DropdownMenuSeparator className="my-1.5" />
-                  <DropdownMenuItem asChild className="rounded-lg justify-center p-2">
-                    <Link href="/user/notifications" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                  <DropdownMenuSeparator className="my-1 sm:my-1.5" />
+                  <DropdownMenuItem asChild className="rounded-lg justify-center p-1.5 sm:p-2">
+                    <Link href="/user/notifications" className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
                       View all notifications
                     </Link>
                   </DropdownMenuItem>

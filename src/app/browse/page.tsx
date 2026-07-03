@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import ListingCard from '@/components/listing-card'
 import ListingCardSkeleton from '@/components/listing-card-skeleton'
@@ -11,15 +12,16 @@ import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Search, SlidersHorizontal, X, Clock, ChevronDown, ShoppingBag } from 'lucide-react'
+import { Search, SlidersHorizontal, X, Clock, ChevronDown, ShoppingBag, RefreshCw } from 'lucide-react'
 import { formatPrice } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import { useCartStore } from '@/lib/store/auth'
 import { useLanguageStore } from '@/lib/store/language'
+import { categoriesService, listingsService, savedListingsService, searchHistoryService, recentlyViewedService } from '@/services'
+import { createClient } from '@/lib/supabase/client'
 
 export default function BrowsePage() {
-  const supabase = createClient()
+  const searchParams = useSearchParams()
   const { user } = useAuthStore()
   const { incrementCart, decrementCart } = useCartStore()
   const { translate } = useLanguageStore()
@@ -33,18 +35,8 @@ export default function BrowsePage() {
   const [showHistory, setShowHistory] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<any[]>([])
-  const [searchQuery, setSearchQuery] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('search') || new URLSearchParams(window.location.search).get('q') || ''
-    }
-    return ''
-  })
-  const [category, setCategory] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('category') || 'all'
-    }
-    return 'all'
-  })
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || searchParams.get('q') || '')
+  const [category, setCategory] = useState(searchParams.get('category') || 'all')
   const [condition, setCondition] = useState('all')
   const [sortBy, setSortBy] = useState('newest')
   const [priceRange, setPriceRange] = useState([0, 100000])
@@ -55,6 +47,8 @@ export default function BrowsePage() {
   const [errorMessage, setErrorMessage] = useState('')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [touchStart, setTouchStart] = useState(0)
 
   useEffect(() => {
     fetchCategories()
@@ -97,105 +91,94 @@ export default function BrowsePage() {
   
   // Update category from URL when it changes
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const urlCategory = urlParams.get('category')
+    const urlCategory = searchParams.get('category')
     if (urlCategory && urlCategory !== category) {
       setCategory(urlCategory)
     }
-  }, [])
+  }, [searchParams])
+
+  // Swipe-to-refresh handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientY)
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEnd = e.changedTouches[0].clientY
+    const diff = touchEnd - touchStart
+    if (diff > 100 && !isRefreshing && window.scrollY === 0) {
+      setIsRefreshing(true)
+      setPage(0)
+      setListings([])
+      setHasMore(true)
+      fetchListings(0).finally(() => setIsRefreshing(false))
+      if (user) {
+        fetchSearchHistory()
+        fetchSavedListings()
+        fetchRecentlyViewed()
+      }
+    }
+  }
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase.from('categories').select('*').order('name')
-    if (error) {
+    try {
+      const data = await categoriesService.getAllCategories()
+      setCategories(data)
+    } catch (error) {
       console.error('Error fetching categories:', error)
-    } else {
-      setCategories(data || [])
     }
   }
 
   const fetchSearchHistory = async () => {
     if (!user) return
-    const { data, error } = await supabase
-      .from('search_history')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-    if (error) {
+    try {
+      const data = await searchHistoryService.getSearchHistory(user.id, 10)
+      setSearchHistory(data)
+    } catch (error) {
       console.error('Error fetching search history:', error)
-    } else {
-      setSearchHistory(data || [])
     }
   }
 
   const fetchSavedListings = async () => {
     if (!user) return
-    const { data, error } = await supabase
-      .from('saved_listings')
-      .select('listing_id')
-      .eq('user_id', user.id)
-    if (error) {
-      console.error('Error fetching cart items:', error)
-    } else {
-      const savedIds = new Set((data || []).map((sl: any) => sl.listing_id))
+    try {
+      const data = await savedListingsService.getSavedListingsByUser(user.id)
+      const savedIds = new Set(data.map((sl) => sl.listing_id))
       setSavedListings(savedIds)
+    } catch (error) {
+      console.error('Error fetching cart items:', error)
     }
   }
 
   const fetchRecentlyViewed = async () => {
     if (!user) return
     try {
-      const { data } = await supabase
-        .from('recently_viewed')
-        .select(`
-          listings (
-            *,
-            profiles!listings_seller_id_fkey (
-              full_name,
-              avatar_url
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false })
-        .limit(8)
-      
-      // Remove duplicates by listing ID
-      const uniqueListings = data?.map((item: any) => ({
-        ...item.listings,
-        sellerName: item.listings.profiles?.full_name || 'Unknown',
-        sellerAvatar: item.listings.profiles?.avatar_url
-      })).filter(Boolean) || []
-      const seen = new Set()
-      const deduplicated = uniqueListings.filter((listing: any) => {
-        if (seen.has(listing.id)) return false
-        seen.add(listing.id)
-        return true
-      })
-      
-      setRecentlyViewed(deduplicated)
+      const data = await recentlyViewedService.getRecentlyViewed(user.id, 8)
+      setRecentlyViewed(data)
     } catch (error) {
       console.error('Error fetching recently viewed:', error)
+      setRecentlyViewed([])
     }
   }
 
   const handleRemoveFromRecentlyViewed = async (listingId: string) => {
-    if (!user) return
+    if (!user || !listingId) return
     try {
-      await supabase
-        .from('recently_viewed')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      
+      await recentlyViewedService.removeRecentlyViewed(user.id, listingId)
       setRecentlyViewed(recentlyViewed.filter((l) => l.id !== listingId))
-    } catch (error) {
-      console.error('Error removing from recently viewed:', error)
+    } catch (error: unknown) {
+      // Silently ignore if table doesn't exist
+      if (error && typeof error === 'object' && 'code' in error) {
+        const errorCode = (error as { code: string }).code
+        if (errorCode !== 'PGRST116' && errorCode !== '42P01') {
+          console.error('Error removing from recently viewed:', error)
+        }
+      }
     }
   }
 
   const fetchSuggestions = async () => {
     if (searchQuery.length < 2) return
+    const supabase = createClient()
     const { data, error } = await supabase
       .from('listings')
       .select('id, title, price, currency, images')
@@ -219,7 +202,7 @@ export default function BrowsePage() {
       priceRange,
       datePosted
     }
-    await supabase.from('search_history').insert({
+    await searchHistoryService.addSearchHistory({
       user_id: user.id,
       query: searchQuery.trim(),
       filters
@@ -229,7 +212,7 @@ export default function BrowsePage() {
 
   const clearHistory = async () => {
     if (!user) return
-    await supabase.from('search_history').delete().eq('user_id', user.id)
+    await searchHistoryService.clearSearchHistory(user.id)
     setSearchHistory([])
   }
 
@@ -243,56 +226,42 @@ export default function BrowsePage() {
 
     if (savedListings.has(listingId)) {
       // Unsave
-      const { error } = await supabase
-        .from('saved_listings')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      if (error) {
-        console.error('Error unsaving listing:', error)
-        setErrorMessage('Failed to unsave listing')
-        setShowErrorNotification(true)
-        setTimeout(() => setShowErrorNotification(false), 3000)
-      } else {
+      try {
+        await savedListingsService.deleteSavedListingByUserAndListing(user.id, listingId)
         setSavedListings((prev) => {
           const newSet = new Set(prev)
           newSet.delete(listingId)
           return newSet
         })
         decrementCart()
+      } catch (error) {
+        console.error('Error unsaving listing:', error)
+        setErrorMessage('Failed to unsave listing')
+        setShowErrorNotification(true)
+        setTimeout(() => setShowErrorNotification(false), 3000)
       }
     } else {
       // Save
       try {
-        const { error } = await supabase
-          .from('saved_listings')
-          .insert({
-            user_id: user.id,
-            listing_id: listingId
-          })
-        
-        if (error) {
-          console.error('Error saving listing:', error.message, error)
-          // Check if it's a duplicate error
-          if (error.code === '23505' || error.message?.includes('duplicate')) {
-            // Already saved, just update local state
-            setSavedListings((prev) => new Set(prev).add(listingId))
-          } else {
-            setErrorMessage('Failed to save listing')
-            setShowErrorNotification(true)
-            setTimeout(() => setShowErrorNotification(false), 3000)
-          }
-        } else {
+        await savedListingsService.createSavedListing({ user_id: user.id, listing_id: listingId })
+        setSavedListings((prev) => new Set(prev).add(listingId))
+        incrementCart()
+        setShowCartNotification(true)
+        setTimeout(() => setShowCartNotification(false), 3000)
+      } catch (error: unknown) {
+        console.error('Error saving listing:', error)
+        // Check if it's a duplicate error
+        if (error && typeof error === 'object' && 'code' in error) {
+          const errorCode = (error as { code: string; message?: string }).code
+          if (errorCode === '23505' || (error as { message?: string }).message?.includes('duplicate')) {
+          // Already saved, just update local state
           setSavedListings((prev) => new Set(prev).add(listingId))
-          incrementCart()
-          setShowCartNotification(true)
-          setTimeout(() => setShowCartNotification(false), 3000)
+        } else {
+          setErrorMessage('Failed to save listing')
+          setShowErrorNotification(true)
+          setTimeout(() => setShowErrorNotification(false), 3000)
         }
-      } catch (err) {
-        console.error('Unexpected error saving listing:', err)
-        setErrorMessage('Failed to save listing')
-        setShowErrorNotification(true)
-        setTimeout(() => setShowErrorNotification(false), 3000)
+        }
       }
     }
   }
@@ -300,134 +269,77 @@ export default function BrowsePage() {
   const fetchListings = async (currentPage = 0) => {
     if (currentPage === 0) setLoading(true)
     try {
-      let query = supabase
-        .from('listings')
-        .select('*')
-        .eq('status', 'active')
-        .range(currentPage * 16, (currentPage + 1) * 16 - 1)
-
+      const filters: Record<string, string | number> = {}
+      
       if (debouncedQuery) {
-        query = query.ilike('title', `%${debouncedQuery}%`)
+        filters.search = debouncedQuery
       }
 
       if (category !== 'all') {
-        query = query.eq('category_id', category)
+        filters.category_id = category
       }
 
       if (condition !== 'all') {
-        query = query.eq('condition', condition)
+        filters.condition = condition
       }
 
       // Price range filter
-      query = query.gte('price', priceRange[0]).lte('price', priceRange[1])
+      filters.min_price = priceRange[0]
+      filters.max_price = priceRange[1]
 
-      // Date posted filter
+      // Date posted filter - need to handle this separately since it's not in the service
+      let dateFilter: Date | undefined = undefined
       if (datePosted !== 'all') {
         const now = new Date()
-        let dateFilter = new Date()
+        let filterDate = new Date()
         switch (datePosted) {
           case 'today':
-            dateFilter = new Date(now.setHours(0, 0, 0, 0))
+            filterDate = new Date(now.setHours(0, 0, 0, 0))
             break
           case 'week':
-            dateFilter = new Date(now.setDate(now.getDate() - 7))
+            filterDate = new Date(now.setDate(now.getDate() - 7))
             break
           case 'month':
-            dateFilter = new Date(now.setMonth(now.getMonth() - 1))
-            break
-          case 'year':
-            dateFilter = new Date(now.setFullYear(now.getFullYear() - 1))
+            filterDate = new Date(now.setMonth(now.getMonth() - 1))
             break
         }
-        query = query.gte('created_at', dateFilter.toISOString())
+        dateFilter = filterDate
       }
 
-      // Sort
-      switch (sortBy) {
-        case 'newest':
-          query = query.order('created_at', { ascending: false })
-          break
-        case 'oldest':
-          query = query.order('created_at', { ascending: true })
-          break
-        case 'price_low':
-          query = query.order('price', { ascending: true })
-          break
-        case 'price_high':
-          query = query.order('price', { ascending: false })
-          break
-        case 'popular':
-          query = query.order('views', { ascending: false })
-          break
-        case 'relevance':
-          // For relevance, we'd need full-text search - for now use newest
-          query = query.order('created_at', { ascending: false })
-          break
+      // Sort options
+      const sortOptions: { field: 'created_at' | 'title' | 'views' | 'price'; order: 'asc' | 'desc' } = {
+        field: 'created_at',
+        order: 'desc'
+      }
+      if (sortBy === 'price_low') {
+        sortOptions.field = 'price'
+        sortOptions.order = 'asc'
+      } else if (sortBy === 'price_high') {
+        sortOptions.field = 'price'
+        sortOptions.order = 'desc'
       }
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Supabase error:', error.message, error.details, error.hint, error.code)
-        throw error
-      }
-
-      // Check if there are more items
-      if (data && data.length < 16) {
-        setHasMore(false)
-      }
-
-      // Fetch seller profiles and extra data for each listing
-      const listingsWithExtraData = await Promise.all(
-        (data || []).map(async (listing) => {
-          // Fetch seller profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', listing.seller_id)
-            .single()
-          
-          // Fetch reviews for this listing
-          const { data: reviews } = await supabase
-            .from('reviews')
-            .select('rating')
-            .eq('listing_id', listing.id)
-          
-          // Fetch order count for this listing
-          const { count: orderCount } = await supabase
-            .from('orders')
-            .select('*', { count: 'exact', head: true })
-            .eq('listing_id', listing.id)
-            .in('status', ['delivered', 'processing', 'shipped'])
-          
-          // Calculate average rating
-          const avgRating = reviews && reviews.length > 0
-            ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            : 0
-          
-          return {
-            ...listing,
-            profiles: profile,
-            quantity: listing.quantity || 1,
-            avgRating: avgRating || 0,
-            reviewCount: reviews?.length || 0,
-            purchaseCount: orderCount || 0
-          }
-        })
-      )
+      const { data, count } = await listingsService.getListings(filters, sortOptions, currentPage + 1, 16)
       
-      if (currentPage === 0) {
-        setListings(listingsWithExtraData)
-      } else {
-        setListings(prev => [...prev, ...listingsWithExtraData])
+      // Apply date filter locally if needed
+      let filteredData = data
+      if (dateFilter) {
+        filteredData = data.filter((listing: { created_at: string }) => new Date(listing.created_at) >= dateFilter)
       }
-    } catch (error: any) {
-      console.error('Error fetching listings:', error?.message || error)
+
+      if (currentPage === 0) {
+        setListings(filteredData)
+      } else {
+        setListings((prev) => [...prev, ...filteredData])
+      }
+      
+      setHasMore((currentPage + 1) * 16 < (count || 0))
+    } catch (error) {
+      console.error('Error fetching listings:', error)
     } finally {
       if (currentPage === 0) setLoading(false)
     }
   }
-
 
   const conditions = [
     { value: 'all', label: 'All Conditions' },
@@ -455,10 +367,15 @@ export default function BrowsePage() {
   ]
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300">
+    <div 
+      className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-300"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+
       {/* Cart Notification */}
       {showCartNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-25 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
           <div className="bg-emerald-600 text-white px-6 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 border border-emerald-500">
             <svg className="w-5 h-5 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -470,7 +387,7 @@ export default function BrowsePage() {
       
       {/* Error Notification */}
       {showErrorNotification && (
-        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
+        <div className="fixed top-25 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
           <div className="bg-rose-600 text-white px-6 py-3.5 rounded-xl shadow-2xl flex items-center gap-3 border border-rose-500">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -481,27 +398,29 @@ export default function BrowsePage() {
       )}
       
       {/* Page Header */}
-      <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
+      <div className="relative overflow-hidden p-4 sm:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
         <div className="absolute top-0 right-0 w-56 h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-        <div className="relative z-10 flex items-center gap-3 sm:gap-4">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-            <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-[9px] sm:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Marketplace</p>
-            <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">Browse Products</h1>
-            <p className="text-[10px] sm:text-xs font-semibold text-indigo-200/80 mt-0.5">Find the perfect item from our curated collection of verified products</p>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 md:gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-[9px] sm:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Marketplace</p>
+              <h1 className="text-sm sm:text-lg md:text-2xl font-extrabold text-white tracking-tight leading-tight">Browse Products</h1>
+              <p className="text-[10px] sm:text-xs font-semibold text-indigo-200/80 mt-0.5">Find the perfect item from our curated collection of verified products</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Search and Filters Panel */}
-      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 sm:p-6 space-y-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 lg:p-6 space-y-4 sm:space-y-6 shadow-sm">
         
         {/* Search controls row */}
-        <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex flex-row gap-2 sm:gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 h-5 w-5" />
+            <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 h-4 w-4 sm:h-5 sm:w-5" />
             <Input
               placeholder={translate('searchPlaceholder')}
               value={searchQuery}
@@ -513,7 +432,7 @@ export default function BrowsePage() {
                 setTimeout(() => setShowHistory(false), 200)
                 setTimeout(() => setShowSuggestions(false), 200)
               }}
-              className="pl-12 h-12 text-sm sm:text-base border border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-xl bg-white dark:bg-slate-950 shadow-inner"
+              className="pl-10 sm:pl-12 h-10 sm:h-12 text-[11px] sm:text-xs md:text-sm lg:text-base border border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500 rounded-lg sm:rounded-xl bg-white dark:bg-slate-950 shadow-inner"
             />
 
             {/* Autocomplete Suggestions Popover */}
@@ -588,63 +507,62 @@ export default function BrowsePage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 sm:gap-2">
             <Button 
               onClick={() => { fetchListings(); saveSearchHistory(); }} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white h-12 px-6 shadow-md shadow-indigo-500/10 transition-all duration-200 rounded-xl font-semibold flex-1 md:flex-none"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 sm:h-12 w-12 sm:w-16 shadow-md shadow-indigo-500/10 transition-all duration-200 rounded-lg sm:rounded-xl font-semibold text-[11px] sm:text-xs md:text-sm flex-shrink-0"
             >
-              <Search className="mr-1.5 h-4 w-4" />
-              Search
+              <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
             <Button 
               variant="outline" 
               onClick={() => setShowFilters(!showFilters)} 
-              className={`h-12 px-5 border ${
+              className={`h-10 sm:h-12 px-3 sm:px-5 border ${
                 showFilters 
                   ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-500 text-indigo-600 dark:text-indigo-400' 
                   : 'border-slate-200 dark:border-slate-800 text-slate-655 hover:bg-slate-50 dark:hover:bg-slate-900'
-              } transition-colors rounded-xl font-semibold`}
+              } transition-colors rounded-lg sm:rounded-xl font-semibold text-[11px] sm:text-xs md:text-sm`}
             >
-              <SlidersHorizontal className="h-4 w-4 mr-1.5" />
-              Filters
-              {showFilters && <X className="h-4 w-4 ml-1.5" />}
+              <SlidersHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
+              <span className="hidden sm:inline">Filters</span>
+              {showFilters && <X className="h-3.5 w-3.5 sm:h-4 sm:w-4 ml-1 sm:ml-1.5" />}
             </Button>
           </div>
         </div>
 
         {/* Active Filter Chips */}
         {(category !== 'all' || condition !== 'all' || sortBy !== 'newest' || datePosted !== 'all') && (
-          <div className="flex flex-wrap gap-1.5 pt-1 animate-in fade-in duration-200">
-            <span className="text-xs font-semibold text-slate-500 self-center mr-1">Active filters:</span>
+          <div className="flex flex-wrap gap-1 sm:gap-1.5 pt-1 animate-in fade-in duration-200">
+            <span className="text-[10px] sm:text-xs font-semibold text-slate-500 self-center mr-1">Active filters:</span>
             {category !== 'all' && (
-              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-1 px-3 text-xs flex items-center gap-1.5" variant="outline">
+              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-0.5 sm:py-1 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5" variant="outline">
                 Category: {categories.find(c => c.id === category)?.name || category}
                 <button onClick={() => setCategory('all')} className="text-indigo-400 hover:text-indigo-800 transition-colors">
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </Badge>
             )}
             {condition !== 'all' && (
-              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-1 px-3 text-xs flex items-center gap-1.5" variant="outline">
+              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-0.5 sm:py-1 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5" variant="outline">
                 Condition: {conditions.find(c => c.value === condition)?.label || condition}
                 <button onClick={() => setCondition('all')} className="text-indigo-400 hover:text-indigo-800 transition-colors">
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </Badge>
             )}
             {sortBy !== 'newest' && (
-              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-1 px-3 text-xs flex items-center gap-1.5" variant="outline">
+              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-0.5 sm:py-1 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5" variant="outline">
                 Sort: {sortOptions.find(o => o.value === sortBy)?.label || sortBy}
                 <button onClick={() => setSortBy('newest')} className="text-indigo-400 hover:text-indigo-800 transition-colors">
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </Badge>
             )}
             {datePosted !== 'all' && (
-              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-1 px-3 text-xs flex items-center gap-1.5" variant="outline">
+              <Badge className="bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100 rounded-full py-0.5 sm:py-1 px-2 sm:px-3 text-[10px] sm:text-xs flex items-center gap-1 sm:gap-1.5" variant="outline">
                 Date: {dateOptions.find(o => o.value === datePosted)?.label || datePosted}
                 <button onClick={() => setDatePosted('all')} className="text-indigo-400 hover:text-indigo-800 transition-colors">
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                 </button>
               </Badge>
             )}
@@ -653,13 +571,13 @@ export default function BrowsePage() {
 
         {/* Advanced Filters Expandable Grid */}
         {showFilters && (
-          <div className="border-t border-slate-100 dark:border-slate-900 pt-6 space-y-6 animate-in slide-in-from-top duration-300">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="border-t border-slate-100 dark:border-slate-900 pt-4 sm:pt-6 space-y-4 sm:space-y-6 animate-in slide-in-from-top duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
               
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Category</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Category</Label>
                 <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger className="h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl">
+                  <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
@@ -673,10 +591,10 @@ export default function BrowsePage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Condition</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Condition</Label>
                 <Select value={condition} onValueChange={setCondition}>
-                  <SelectTrigger className="h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl">
+                  <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="All Conditions" />
                   </SelectTrigger>
                   <SelectContent>
@@ -689,10 +607,10 @@ export default function BrowsePage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Sort By</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Sort By</Label>
                 <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl">
+                  <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="Newest" />
                   </SelectTrigger>
                   <SelectContent>
@@ -705,10 +623,10 @@ export default function BrowsePage() {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Date Posted</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Date Posted</Label>
                 <Select value={datePosted} onValueChange={setDatePosted}>
-                  <SelectTrigger className="h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-xl">
+                  <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="Any Time" />
                   </SelectTrigger>
                   <SelectContent>
@@ -723,10 +641,10 @@ export default function BrowsePage() {
             </div>
 
             {/* Price Range Slider Widget */}
-            <div className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border">
+            <div className="space-y-2 sm:space-y-3 bg-slate-50 dark:bg-slate-900/40 p-3 sm:p-4 rounded-lg sm:rounded-xl border">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Price Range</Label>
-                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                <Label className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Price Range</Label>
+                <span className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400">
                   ₱{priceRange[0].toLocaleString()} - ₱{priceRange[1].toLocaleString()}
                 </span>
               </div>
@@ -748,7 +666,7 @@ export default function BrowsePage() {
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-indigo-500" />
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
             {recentlyViewed.map((listing) => (
@@ -797,7 +715,7 @@ export default function BrowsePage() {
           <Card className="border border-dashed py-16">
             <CardContent className="flex flex-col items-center justify-center">
               <ShoppingBag className="h-12 w-12 text-slate-400 mb-3" />
-              <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No products found</h3>
+              <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">No products found</h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm text-center">
                 We couldn't find any products matching your search filter combination. Try adjusting your query or price parameters.
               </p>
@@ -815,8 +733,8 @@ export default function BrowsePage() {
                   isSaved={savedListings.has(listing.id)}
                   onToggleSave={toggleSaveListing}
                   quantity={listing.quantity}
-                  avgRating={listing.avgRating}
-                  reviewCount={listing.reviewCount}
+                  avgRating={listing.avg_rating}
+                  reviewCount={listing.review_count}
                   purchaseCount={listing.purchaseCount}
                 />
               ))}

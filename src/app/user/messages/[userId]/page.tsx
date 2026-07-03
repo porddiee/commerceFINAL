@@ -8,9 +8,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { profilesService, messagesService } from '@/services'
+import { toast } from '@/hooks/use-toast'
 import { Send, ArrowLeft, User, Trash2, Edit2, Check, CheckCheck, MoreVertical } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import Link from 'next/link'
+import type { Message } from '@/types'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,11 +84,7 @@ export default function ConversationPage() {
   }
 
   const fetchOtherUser = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', otherUserId)
-      .single()
+    const data = await profilesService.getProfileById(otherUserId)
     setOtherUser(data)
   }
 
@@ -94,24 +93,8 @@ export default function ConversationPage() {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .or(`and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`)
-        .order('created_at', { ascending: true })
-
-      if (error) throw error
-      
-      // Filter out deleted messages for current user
-      const filteredMessages = data?.filter((msg: any) => {
-        // If current user is sender, check deleted_by_sender
-        if (msg.sender_id === user.id) {
-          return !msg.deleted_by_sender
-        }
-        // If current user is receiver, check deleted_by_receiver
-        return !msg.deleted_by_receiver
-      }) || []
-      setMessages(filteredMessages)
+      const data = await messagesService.getMessagesBetweenUsers(user.id, otherUserId)
+      setMessages(data)
 
       // Mark messages as read
       await markMessagesAsRead()
@@ -188,25 +171,23 @@ export default function ConversationPage() {
 
     setSending(true)
     try {
-      const { error } = await supabase.from('messages').insert({
+      await messagesService.createMessage({
         sender_id: user.id,
         receiver_id: otherUserId,
         content: newMessage.trim(),
       })
 
-      if (error) throw error
-
       setNewMessage('')
       // Don't fetchMessages here - Realtime will handle it
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('Failed to send message')
+      toast({ title: 'Error', description: 'Failed to send message', variant: 'destructive' })
     } finally {
       setSending(false)
     }
   }
 
-  const canEditOrDelete = (message: any) => {
+  const canEditOrDelete = (message: Message) => {
     if (!user || message.sender_id !== user.id) return false
     const messageTime = new Date(message.created_at).getTime()
     const currentTime = new Date().getTime()
@@ -217,38 +198,30 @@ export default function ConversationPage() {
   const handleEditMessage = async () => {
     if (!editingMessage || !editContent.trim()) return
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ 
-          content: editContent.trim(),
-          edited_at: new Date().toISOString()
-        })
-        .eq('id', editingMessage)
-
-      if (error) throw error
+      await messagesService.updateMessage(editingMessage, {
+        content: editContent.trim(),
+        edited_at: new Date().toISOString()
+      })
 
       setEditingMessage(null)
       setEditContent('')
       // Don't fetchMessages here - Realtime will handle it
     } catch (error) {
       console.error('Error editing message:', error)
-      alert('Failed to edit message')
+      toast({ title: 'Error', description: 'Failed to edit message', variant: 'destructive' })
     }
   }
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!confirm('Are you sure you want to delete this message?')) return
     try {
-      const { error } = await supabase
-        .from('messages')
-        .update({ deleted_by_sender: new Date().toISOString() })
-        .eq('id', messageId)
-
-      if (error) throw error
+      await messagesService.updateMessage(messageId, {
+        deleted_by_sender: true
+      })
       // Don't fetchMessages here - Realtime will handle it
     } catch (error) {
       console.error('Error deleting message:', error)
-      alert('Failed to delete message')
+      toast({ title: 'Error', description: 'Failed to delete message', variant: 'destructive' })
     }
   }
 
@@ -269,7 +242,7 @@ export default function ConversationPage() {
       router.push('/user/messages')
     } catch (error) {
       console.error('Error deleting conversation:', error)
-      alert('Failed to delete conversation')
+      toast({ title: 'Error', description: 'Failed to delete conversation', variant: 'destructive' })
     }
   }
 

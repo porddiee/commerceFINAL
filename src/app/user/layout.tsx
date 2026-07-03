@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store/auth'
 
@@ -11,12 +11,21 @@ export default function UserLayout({
 }) {
   const { user } = useAuthStore()
   const router = useRouter()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    if (!user) {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted && !user) {
       router.push('/login')
     }
-  }, [user, router])
+  }, [user, router, mounted])
+
+  if (!mounted) {
+    return null
+  }
 
   if (!user) {
     return null

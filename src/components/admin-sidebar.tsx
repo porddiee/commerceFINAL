@@ -18,11 +18,12 @@ import {
   X,
 } from 'lucide-react'
 import { useSidebarStore } from '@/lib/store/sidebar'
+import type { LucideIcon } from 'lucide-react'
 
 interface NavItem {
   title: string
   href: string
-  icon: any
+  icon: LucideIcon
 }
 
 const adminNavItems: NavItem[] = [

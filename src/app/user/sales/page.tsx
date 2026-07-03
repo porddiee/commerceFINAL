@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { toast } from '@/hooks/use-toast'
 import { Package, MapPin, CreditCard, CheckCircle, Clock, Truck, User } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -119,7 +120,7 @@ export default function SalesPage() {
       fetchOrders()
     } catch (error) {
       console.error('Error updating order status:', error)
-      alert('Failed to update order status')
+      toast({ title: 'Error', description: 'Failed to update order status', variant: 'destructive' })
     }
   }
 

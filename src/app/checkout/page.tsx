@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { toast } from '@/hooks/use-toast'
 import { ArrowLeft, MapPin, CreditCard, Package, CheckCircle, ShoppingBag } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -89,14 +90,14 @@ export default function CheckoutPage() {
         setListings(listingsData)
 
         // Fetch all unique sellers
-        const sellerIds = [...new Set(listingsData.map((l: any) => l.seller_id))]
+        const sellerIds = [...new Set(listingsData.map((l: { seller_id: string }) => l.seller_id))]
         const { data: sellersData } = await supabase
           .from('profiles')
           .select('*')
           .in('id', sellerIds)
 
-        const sellerMap = new Map<string, any>()
-        sellersData?.forEach((s: any) => sellerMap.set(s.id, s))
+        const sellerMap = new Map<string, { id: string; full_name?: string; avatar_url?: string }>()
+        sellersData?.forEach((s: { id: string; full_name?: string; avatar_url?: string }) => sellerMap.set(s.id, s))
         setSellers(sellerMap)
       } else {
         router.push('/browse')
@@ -139,7 +140,7 @@ export default function CheckoutPage() {
       
       setPaymentMethods(data || [])
       if (data && data.length > 0) {
-        const defaultMethod = data.find((m: any) => m.is_default) || data[0]
+        const defaultMethod = data.find((m: { is_default?: boolean; type: string }) => m.is_default) || data[0]
         setSelectedPayment(defaultMethod.type)
       }
     } catch (error) {
@@ -177,13 +178,13 @@ export default function CheckoutPage() {
       }
     } catch (error) {
       console.error('Error adding address:', error)
-      alert('Failed to add address')
+      toast({ title: 'Error', description: 'Failed to add address', variant: 'destructive' })
     }
   }
 
   const handlePlaceOrder = async () => {
     if (!user || listings.length === 0 || !selectedAddress || !selectedPayment) {
-      alert('Please select an address and payment method')
+      toast({ title: 'Error', description: 'Please select an address and payment method', variant: 'destructive' })
       return
     }
 
@@ -230,9 +231,12 @@ export default function CheckoutPage() {
 
       setOrderIds(placedIds)
       setOrderPlaced(true)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error placing order:', error)
-      alert(`Failed to place order: ${error?.message || 'Unknown error'}`)
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Unknown error'
+      toast({ title: 'Error', description: `Failed to place order: ${errorMessage}`, variant: 'destructive' })
     } finally {
       setPlacingOrder(false)
     }
@@ -267,13 +271,13 @@ export default function CheckoutPage() {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto py-8 px-4 max-w-2xl">
           <Card className="rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-            {/* Green hero */}
-            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 px-8 py-10 text-center text-white">
+            {/* Indigo hero */}
+            <div className="bg-gradient-to-br from-indigo-600 to-blue-600 px-8 py-10 text-center text-white">
               <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="h-9 w-9" />
               </div>
               <h1 className="text-2xl font-extrabold">Order{orderIds.length > 1 ? 's' : ''} Placed!</h1>
-              <p className="text-emerald-100 text-sm mt-1">
+              <p className="text-indigo-100 text-sm mt-1">
                 {orderIds.length} order{orderIds.length !== 1 ? 's' : ''} successfully created
               </p>
             </div>
@@ -282,7 +286,7 @@ export default function CheckoutPage() {
               <div className="space-y-3">
                 {listings.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 text-sm">
-                    <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <CheckCircle className="h-4 w-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
                     <span className="flex-1 font-medium line-clamp-1">{item.title}</span>
                     <span className="font-bold text-indigo-600 dark:text-indigo-400">{formatPrice(item.price, 'PHP')}</span>
                   </div>
@@ -291,7 +295,7 @@ export default function CheckoutPage() {
               {/* Status trail */}
               <div className="border rounded-2xl p-4 space-y-3">
                 {['Order Placed', 'Processing', 'Shipped', 'Delivered'].map((step, i) => (
-                  <div key={step} className={`flex items-center gap-3 text-sm ${i === 0 ? 'text-emerald-600 dark:text-emerald-400 font-semibold' : 'text-muted-foreground'}`}>
+                  <div key={step} className={`flex items-center gap-3 text-sm ${i === 0 ? 'text-indigo-600 dark:text-indigo-400 font-semibold' : 'text-muted-foreground'}`}>
                     {i === 0
                       ? <CheckCircle className="h-4 w-4" />
                       : <div className="w-4 h-4 rounded-full border-2 border-current" />}

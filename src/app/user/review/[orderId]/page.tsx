@@ -5,8 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { ordersService, reviewsService, notificationsService } from '@/services'
+import { toast } from '@/hooks/use-toast'
 import { Star, ArrowLeft, Package, User, CheckCircle, Heart, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 
@@ -14,7 +15,6 @@ export default function ReviewPage() {
   const { user } = useAuthStore()
   const params = useParams()
   const router = useRouter()
-  const supabase = createClient()
   const orderId = params.orderId as string
 
   const [order, setOrder] = useState<any>(null)
@@ -36,29 +36,12 @@ export default function ReviewPage() {
     if (!user || !orderId) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          listings (*),
-          seller:profiles!orders_seller_id_fkey (full_name, avatar_url)
-        `)
-        .eq('id', orderId)
-        .eq('buyer_id', user.id)
-        .single()
+      const data = await ordersService.getOrderById(orderId)
+      if (data && data.buyer_id === user.id) {
+        setOrder(data)
 
-      if (error) throw error
-      setOrder(data)
-
-      // Check if user has already reviewed this listing
-      if (data) {
-        const { data: reviewData } = await supabase
-          .from('reviews')
-          .select('*')
-          .eq('listing_id', data.listing_id)
-          .eq('reviewer_id', user.id)
-          .single()
-        
+        // Check if user has already reviewed this listing
+        const reviewData = await reviewsService.getReviewByListingAndReviewer(data.listing_id, user.id)
         setExistingReview(reviewData)
       }
     } catch (error) {
@@ -73,13 +56,13 @@ export default function ReviewPage() {
     if (!user || !order) return
 
     if (rating === 0) {
-      alert('Please select a star rating')
+      toast({ title: 'Error', description: 'Please select a star rating', variant: 'destructive' })
       return
     }
 
     setSubmitting(true)
     try {
-      const { error } = await supabase.from('reviews').insert({
+      await reviewsService.createReview({
         listing_id: order.listing_id,
         reviewer_id: user.id,
         reviewee_id: order.seller_id,
@@ -87,21 +70,17 @@ export default function ReviewPage() {
         comment: comment.trim() || 'Great buyer experience!',
       })
 
-      if (error) {
-        console.error('Review error:', error)
-        throw error
-      }
-
       // Create notification for the seller
-      const { error: notificationError } = await supabase.from('notifications').insert({
-        user_id: order.seller_id,
-        title: 'New Review Received',
-        content: `You received a ${rating}-star review for "${order.listings?.title}".`,
-        link: '/user/reviews',
-        is_read: false,
-      })
-
-      if (notificationError) {
+      try {
+        await notificationsService.createNotification({
+          user_id: order.seller_id,
+          type: 'review',
+          title: 'New Review Received',
+          content: `You received a ${rating}-star review for "${order.listings?.title}".`,
+          link: '/user/reviews',
+          is_read: false,
+        })
+      } catch (notificationError) {
         console.error('Notification error:', notificationError)
         // Don't throw error - review was submitted successfully
       }
@@ -109,7 +88,7 @@ export default function ReviewPage() {
       router.push('/user/transactions')
     } catch (error) {
       console.error('Error submitting review:', error)
-      alert('Failed to submit review. Please try again.')
+      toast({ title: 'Error', description: 'Failed to submit review. Please try again.', variant: 'destructive' })
     } finally {
       setSubmitting(false)
     }

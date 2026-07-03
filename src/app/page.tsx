@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, ShoppingBag, Users, Shield, TrendingUp, Clock, X, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint, MessageSquare, Eye, ArrowUpRight } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { Search, ShoppingBag, Users, Shield, TrendingUp, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint, MessageSquare, Eye, ArrowUpRight, Flame, Zap, X } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/auth'
-import ListingCard from '@/components/listing-card'
+import { listingsService, profilesService } from '@/services'
+import { createClient } from '@/lib/supabase/client'
 
 const categoryIcons: Record<string, any> = {
   'electronics': Laptop,
@@ -38,15 +38,15 @@ type TrendingProduct = {
   title: string
   price: number | null
   views: number | null
+  images: string[] | null
 }
 
 export default function HomePage() {
-  const supabase = createClient()
   const router = useRouter()
   const { user } = useAuthStore()
+  const supabase = createClient()
   
   const [categories, setCategories] = useState<any[]>([])
-  const [recentlyViewed, setRecentlyViewed] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCinematicIntro, setShowCinematicIntro] = useState(false)
   const [cinematicStage, setCinematicStage] = useState(0)
@@ -86,7 +86,7 @@ export default function HomePage() {
     const start = Math.floor((allFeaturedListings.length / 3) * 2)
     return [...allFeaturedListings.slice(start), ...allFeaturedListings.slice(start)]
   }, [allFeaturedListings])
-  
+
   // Intersection observer animations
   const [categoriesInView, setCategoriesInView] = useState(false)
   const [featuresInView, setFeaturesInView] = useState(false)
@@ -101,9 +101,6 @@ export default function HomePage() {
     fetchStats()
     fetchFeaturedListings()
     fetchTrendingProducts()
-    if (user) {
-      fetchRecentlyViewed()
-    }
   }, [user])
   
   // Search suggestions
@@ -229,7 +226,7 @@ export default function HomePage() {
     }
     
     fetchCategoryProducts()
-  }, [hoveredCategory, categoryProducts, supabase])
+  }, [hoveredCategory, categoryProducts])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -349,7 +346,7 @@ export default function HomePage() {
     try {
       const { data, error } = await supabase
         .from('listings')
-        .select('id, title, price, views')
+        .select('id, title, price, views, images')
         .eq('status', 'active')
         .order('views', { ascending: false })
         .limit(6)
@@ -459,70 +456,18 @@ export default function HomePage() {
     }
   }
 
-  const fetchRecentlyViewed = async () => {
-    if (!user) return
-    try {
-      const { data } = await supabase
-        .from('recently_viewed')
-        .select(`
-          listings (
-            *,
-            profiles!listings_seller_id_fkey (
-              full_name,
-              avatar_url
-            )
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('viewed_at', { ascending: false })
-        .limit(8)
-      
-      const listings = data?.map((item: any) => ({
-        ...item.listings,
-        sellerName: item.listings.profiles?.full_name || 'Unknown',
-        sellerAvatar: item.listings.profiles?.avatar_url
-      })).filter(Boolean) || []
-      
-      const seen = new Set()
-      const deduplicated = listings.filter((listing: any) => {
-        if (seen.has(listing.id)) return false
-        seen.add(listing.id)
-        return true
-      })
-      
-      setRecentlyViewed(deduplicated)
-    } catch (error) {
-      console.error('Error fetching recently viewed:', error)
-    }
-  }
-
   const fetchStats = async () => {
     try {
-      const [{ count: listingsCount }, { count: usersCount }] = await Promise.all([
-        supabase.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true })
+      const [listingsCount, usersCount] = await Promise.all([
+        listingsService.countActiveListings(),
+        profilesService.countUsers()
       ])
       setStats({
-        listings: listingsCount || 0,
-        users: usersCount || 0
+        listings: listingsCount,
+        users: usersCount
       })
     } catch (error) {
       console.error('Error fetching stats:', error)
-    }
-  }
-
-  const handleRemoveFromRecentlyViewed = async (listingId: string) => {
-    if (!user) return
-    try {
-      await supabase
-        .from('recently_viewed')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      
-      setRecentlyViewed(recentlyViewed.filter((l) => l.id !== listingId))
-    } catch (error) {
-      console.error('Error removing from recently viewed:', error)
     }
   }
 
@@ -813,11 +758,13 @@ export default function HomePage() {
       {/* Cinematic Introduction */}
       {showCinematicIntro && (
         <div className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${cinematicStage >= 5 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-          {/* Skip Button */}
+          {/* Skip Button - Enhanced for accessibility and touch targets */}
           <button
             onClick={skipCinematicIntro}
-            className="absolute top-4 right-4 z-30 px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 rounded-full text-sm font-semibold transition-all duration-300 hover:scale-105"
+            className="absolute top-4 right-4 z-30 flex items-center gap-2 px-5 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95 min-h-[44px] min-w-[88px] shadow-lg hover:shadow-xl"
+            aria-label="Skip introduction"
           >
+            <X className="h-4 w-4" />
             Skip
           </button>
           
@@ -832,52 +779,52 @@ export default function HomePage() {
           
           {/* Main content */}
           <div className="relative z-10 text-center">
-            {/* Logo reveal with gradient text */}
-            <div className={`transition-all duration-3000 ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-200'}`}>
-              <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift">
+            {/* Logo reveal with enhanced gradient text */}
+            <div className={`transition-all duration-700 ease-out ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-150'}`}>
+              <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift drop-shadow-2xl">
                 SURIMART
               </h1>
-              <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-2000 ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
+              <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-500 ease-out ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
             </div>
             
-            {/* Tagline reveal */}
-            <div className={`mt-8 transition-all duration-2500 delay-500 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
-              <p className="text-base sm:text-2xl text-indigo-200 font-light tracking-wide">
+            {/* Tagline reveal with improved contrast */}
+            <div className={`mt-8 transition-all duration-500 ease-out delay-200 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+              <p className="text-base sm:text-2xl text-indigo-200 font-light tracking-wide drop-shadow-md">
                 Your Gateway to the Surigao
               </p>
             </div>
             
-            {/* Subtitle - words show together */}
-            <div className={`mt-6 flex items-center justify-center gap-3 sm:gap-4 transition-all duration-1500 ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
+            {/* Subtitle - words show together with better spacing */}
+            <div className={`mt-6 flex items-center justify-center gap-4 sm:gap-6 transition-all duration-300 ease-out ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
                 Marketplace
               </span>
-              <span className="text-indigo-500/50">•</span>
-              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
+              <span className="text-indigo-400/60">•</span>
+              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
                 Community
               </span>
-              <span className="text-indigo-500/50">•</span>
-              <span className="text-xs sm:text-base text-indigo-300/80 tracking-widest uppercase font-bold">
+              <span className="text-indigo-400/60">•</span>
+              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
                 Connection
               </span>
             </div>
             
-            {/* Decorative particles */}
-            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-2000 ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-              <div className="absolute top-1/3 right-1/4 w-2 h-2 bg-blue-400 rounded-full animate-pulse delay-300" />
-              <div className="absolute bottom-1/4 left-1/3 w-2 h-2 bg-purple-400 rounded-full animate-pulse delay-700" />
-              <div className="absolute bottom-1/3 right-1/3 w-2 h-2 bg-indigo-300 rounded-full animate-pulse delay-1000" />
+            {/* Enhanced decorative particles with animation */}
+            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>
+              <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-indigo-400 rounded-full animate-pulse shadow-lg shadow-indigo-400/50" />
+              <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-blue-400 rounded-full animate-pulse delay-300 shadow-lg shadow-blue-400/50" />
+              <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-purple-400 rounded-full animate-pulse delay-700 shadow-lg shadow-purple-400/50" />
+              <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-indigo-300 rounded-full animate-pulse delay-1000 shadow-lg shadow-indigo-300/50" />
             </div>
             
-            {/* Animated ring */}
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border border-indigo-500/30 rounded-full transition-all duration-3000 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border border-blue-500/20 rounded-full transition-all duration-3000 delay-300 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            {/* Animated ring with enhanced glow */}
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-indigo-500/40 rounded-full transition-all duration-700 ease-out shadow-lg shadow-indigo-500/30 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border-2 border-blue-500/30 rounded-full transition-all duration-700 ease-out delay-100 shadow-lg shadow-blue-500/20 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
           </div>
           
-          {/* Dramatic light rays */}
-          <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-3000 ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 5 ? 'opacity-0' : ''}`}>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-500/30 via-transparent to-transparent animate-pulse" />
+          {/* Dramatic light rays with improved performance */}
+          <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-700 ease-out ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 5 ? 'opacity-0' : ''}`}>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-500/40 via-transparent to-transparent animate-pulse" />
           </div>
         </div>
       )}
@@ -953,7 +900,7 @@ export default function HomePage() {
                   asChild 
                   className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
                 >
-                  <Link href="/register">
+                  <Link href="/user/products">
                     <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     Start Selling
                   </Link>
@@ -961,7 +908,7 @@ export default function HomePage() {
               </div>
               
               {/* Marketplace stats */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:gap-6 pt-4 sm:pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+              <div className="grid grid-cols-3 gap-2 sm:gap-6 pt-4 sm:pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
                 <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
                   <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.listings.toLocaleString()}+</div>
                   <div className="text-indigo-200/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider mt-0.5">Active Products</div>
@@ -1093,11 +1040,11 @@ export default function HomePage() {
               <div className="absolute inset-0 bg-white/20 blur-sm rounded-full scale-75 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
           </button>
-        </div>
+           </div>
       </section>
 
       {/* Search and Categories Section */}
-      <section ref={categoriesRef} className="py-12 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative">
+    <section ref={categoriesRef} className="py-12 px-4 bg-gradient-to-br from-slate-50 via-indigo-50/30 to-blue-50/30 dark:from-slate-950 dark:via-indigo-950/20 dark:to-blue-950/20 relative">
         {/* Decorative background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-400/10 dark:bg-indigo-600/10 rounded-full blur-3xl" />
@@ -1173,38 +1120,88 @@ export default function HomePage() {
                 {Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-28 animate-pulse rounded-lg border border-slate-200 bg-white/80 p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"
+                    className="flex h-32 animate-pulse gap-3 rounded-lg border border-slate-200 bg-white/80 p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"
                   >
-                    <div className="h-3 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="mt-4 h-4 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
-                    <div className="mt-3 h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    <div className="h-24 w-24 shrink-0 rounded-md bg-slate-200 dark:bg-slate-800" />
+                    <div className="flex flex-1 flex-col justify-between py-1">
+                      <div>
+                        <div className="h-3 w-16 rounded-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="mt-4 h-4 w-3/4 rounded-full bg-slate-200 dark:bg-slate-800" />
+                        <div className="mt-3 h-3 w-1/2 rounded-full bg-slate-200 dark:bg-slate-800" />
+                      </div>
+                      <div className="h-4 w-20 rounded-full bg-slate-200 dark:bg-slate-800" />
+                    </div>
                   </div>
                 ))}
               </div>
             ) : trendingProducts.length > 0 ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {trendingProducts.map((product, index) => (
-                  <article key={product.id} className="group relative overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg dark:border-slate-800 dark:bg-slate-950 dark:hover:border-indigo-700">
-                    <Link href={`/products/${product.id}`} className="block p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-indigo-50 text-sm font-extrabold text-indigo-700 ring-1 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900/70">
+                  <article 
+                    key={product.id} 
+                    className="group relative overflow-hidden rounded-xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/50 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-500/10 dark:border-slate-800/80 dark:from-slate-950 dark:to-slate-900/50 dark:hover:border-indigo-700 dark:hover:shadow-indigo-500/20"
+                  >
+                    <Link href={`/products/${product.id}`} className="flex h-full gap-4 p-4">
+                      <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200/80 dark:bg-slate-900 dark:ring-slate-800/80">
+                        {product.images && product.images[0] ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.title}
+                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-600">
+                            <ShoppingBag className="h-10 w-10" />
+                          </div>
+                        )}
+                        {/* Ranking badge with gradient for top 3 */}
+                        <span 
+                          className={`absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold shadow-md backdrop-blur-sm ring-1 ${
+                            index === 0 
+                              ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-white ring-amber-300/50' 
+                              : index === 1 
+                              ? 'bg-gradient-to-br from-slate-300 to-slate-400 text-slate-900 ring-slate-200/50' 
+                              : index === 2 
+                              ? 'bg-gradient-to-br from-amber-600 to-amber-700 text-white ring-amber-500/50' 
+                              : 'bg-white/95 text-indigo-700 ring-indigo-100/50 dark:bg-slate-950/95 dark:text-indigo-300 dark:ring-indigo-900/50'
+                          }`}
+                        >
                           {index + 1}
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                          <Eye className="h-3.5 w-3.5" />
-                          {(product.views || 0).toLocaleString()}
-                        </span>
+                        {/* Hot badge for top items */}
+                        {index < 3 && (
+                          <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-white shadow-md">
+                            <Flame className="h-3.5 w-3.5" />
+                          </div>
+                        )}
                       </div>
 
-                      <h3 className="mt-4 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-slate-950 transition-colors group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">
-                        {product.title}
-                      </h3>
+                      <div className="flex min-w-0 flex-1 flex-col justify-between py-1">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-100 transition-all duration-200 group-hover:bg-indigo-100 group-hover:ring-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900/50 dark:group-hover:bg-indigo-900/70 dark:group-hover:ring-indigo-800">
+                              <Eye className="h-3.5 w-3.5" />
+                              {(product.views || 0).toLocaleString()} views
+                            </span>
+                            <ArrowUpRight className="h-5 w-5 shrink-0 text-slate-400 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
+                          </div>
 
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <p className="text-base font-extrabold text-indigo-700 dark:text-indigo-300">
-                          {product.price !== null ? `PHP ${product.price.toLocaleString()}` : 'Price on request'}
-                        </p>
-                        <ArrowUpRight className="h-4 w-4 text-slate-400 transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-300" />
+                          <h3 className="mt-3 line-clamp-2 min-h-10 text-sm font-bold leading-5 text-slate-950 transition-colors duration-200 group-hover:text-indigo-700 dark:text-white dark:group-hover:text-indigo-300">
+                            {product.title}
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-base font-extrabold text-indigo-700 dark:text-indigo-300">
+                            {product.price !== null ? `PHP ${product.price.toLocaleString()}` : 'Price on request'}
+                          </p>
+                          {index < 2 && (
+                            <div className="flex items-center gap-1 text-xs font-semibold text-orange-600 dark:text-orange-400">
+                              <Zap className="h-3 w-3" />
+                              <span>Hot</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Link>
                   </article>
@@ -1275,7 +1272,7 @@ export default function HomePage() {
                         {category.name}
                       </div>
                       <div className="space-y-2">
-                        {categoryProducts[category.id].map((product: any) => (
+                        {categoryProducts[category.id].map((product: { id: string; title: string; images: string[]; price: number }) => (
                           <Link
                             key={product.id}
                             href={`/products/${product.id}`}
@@ -1427,33 +1424,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Recently Viewed Section */}
-      {user && recentlyViewed.length > 0 && (
-        <section className="py-12 px-4 bg-white dark:bg-slate-950">
-          <div className="container mx-auto">
-            <div className="flex items-center gap-2 mb-8 border-b pb-3">
-              <Clock className="h-5 w-5 text-indigo-500" />
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Recently Viewed</h2>
-            </div>
-            <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-thin">
-              {recentlyViewed.map((listing, index) => (
-                <div key={`recently-${listing.id}-${index}`} className="flex-shrink-0 w-32 sm:w-52 relative group">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-4 right-4 z-20 bg-white/95 dark:bg-slate-950/95 backdrop-blur h-6 w-6 rounded-full shadow-sm hover:scale-105 border transition-all"
-                    onClick={() => handleRemoveFromRecentlyViewed(listing.id)}
-                  >
-                    <X className="h-3.5 w-3.5 text-slate-500 hover:text-rose-500" />
-                  </Button>
-                  <ListingCard {...listing} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Features Section */}
       <section ref={featuresRef} className="py-16 px-4 bg-gradient-to-br from-white via-indigo-50/20 to-blue-50/20 dark:from-slate-950 dark:via-indigo-950/15 dark:to-blue-950/15 relative overflow-hidden">

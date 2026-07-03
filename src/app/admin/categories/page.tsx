@@ -6,15 +6,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { createClient } from '@/lib/supabase/client'
 import { Tag, Plus, Edit, Trash2 } from 'lucide-react'
+import { categoriesService } from '@/services'
+
+interface Category {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  created_at: string
+}
 
 export default function AdminCategoriesPage() {
-  const supabase = createClient()
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<any>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState({ name: '', description: '' })
 
   useEffect(() => {
@@ -24,13 +31,8 @@ export default function AdminCategoriesPage() {
   const fetchCategories = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('name')
-
-      if (error) throw error
-      setCategories(data || [])
+      const data = await categoriesService.getAllCategories()
+      setCategories(data)
     } catch (error) {
       console.error('Error fetching categories:', error)
     } finally {
@@ -42,18 +44,13 @@ export default function AdminCategoriesPage() {
     e.preventDefault()
     try {
       if (editingCategory) {
-        const { error } = await supabase
-          .from('categories')
-          .update(formData)
-          .eq('id', editingCategory.id)
-        if (error) throw error
+        await categoriesService.updateCategory(editingCategory.id, formData)
       } else {
-        const { error } = await supabase.from('categories').insert({
+        await categoriesService.createCategory({
           name: formData.name,
           slug: formData.name.toLowerCase().replace(/\s+/g, '-'),
           description: formData.description,
         })
-        if (error) throw error
       }
       setIsDialogOpen(false)
       setEditingCategory(null)
@@ -64,7 +61,7 @@ export default function AdminCategoriesPage() {
     }
   }
 
-  const handleEdit = (category: any) => {
+  const handleEdit = (category: Category) => {
     setEditingCategory(category)
     setFormData({ name: category.name, description: category.description || '' })
     setIsDialogOpen(true)
@@ -74,8 +71,7 @@ export default function AdminCategoriesPage() {
     if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
-      const { error } = await supabase.from('categories').delete().eq('id', id)
-      if (error) throw error
+      await categoriesService.deleteCategory(id)
       fetchCategories()
     } catch (error) {
       console.error('Error deleting category:', error)

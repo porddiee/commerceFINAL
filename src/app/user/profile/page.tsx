@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { profilesService } from '@/services'
+import { createClient } from '@/lib/supabase/client'
 import {
   User,
   MapPin,
@@ -18,6 +19,7 @@ import {
   CheckCircle,
   XCircle,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 type Tab = 'info' | 'verification'
 
@@ -25,7 +27,7 @@ function InputField({
   id, label, placeholder, value, onChange, icon: Icon, type = 'text', className = '',
 }: {
   id: string; label: string; placeholder: string; value: string
-  onChange: (v: string) => void; icon?: any; type?: string; className?: string
+  onChange: (v: string) => void; icon?: LucideIcon; type?: string; className?: string
 }) {
   return (
     <div className="space-y-1.5">
@@ -53,7 +55,7 @@ function StatusBanner({
   variant, icon: Icon, title, body, action,
 }: {
   variant: 'blue' | 'green' | 'red' | 'amber'
-  icon: any; title: string; body: string; action?: React.ReactNode
+  icon: LucideIcon; title: string; body: string; action?: React.ReactNode
 }) {
   const styles = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-950/30 dark:border-blue-900 dark:text-blue-300',
@@ -95,16 +97,15 @@ export default function UserProfilePage() {
   const fetchProfile = async () => {
     if (!user) return
     try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (error) throw error
+      const data = await profilesService.getProfileById(user.id)
       setProfile(data)
       setFormData({
-        full_name: data.full_name || '',
-        bio: data.bio || '',
-        location: data.location || '',
-        avatar_url: data.avatar_url || '',
+        full_name: data?.full_name || '',
+        bio: data?.bio || '',
+        location: data?.location || '',
+        avatar_url: data?.avatar_url || '',
       })
-      setAvatarPreview(data.avatar_url || '')
+      setAvatarPreview(data?.avatar_url || '')
     } catch (error) {
       console.error('Error fetching profile:', error)
     } finally {
@@ -140,7 +141,7 @@ export default function UserProfilePage() {
       
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
       return publicUrl
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Avatar upload error:', error)
       throw error
     }
@@ -154,9 +155,11 @@ export default function UserProfilePage() {
       let avatarUrl = formData.avatar_url || profile?.avatar_url || ''
       if (avatarFile) {
         try { const url = await handleAvatarUpload(); if (url) avatarUrl = url }
-        catch (e: any) { 
+        catch (e: unknown) { 
           console.error('Avatar upload failed:', e)
-          const errorMessage = e?.message || 'Failed to upload avatar'
+          const errorMessage = e && typeof e === 'object' && 'message' in e
+            ? (e as { message: string }).message
+            : 'Failed to upload avatar'
           if (errorMessage.includes('bucket')) {
             setSaveError('Storage bucket not configured. Please create "avatars" bucket in Supabase Storage.')
           } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
@@ -167,17 +170,21 @@ export default function UserProfilePage() {
           setTimeout(() => setSaveError(''), 5000); setSaving(false); return 
         }
       }
-      const { error: updateError } = await supabase.from('profiles').update({
-        full_name: formData.full_name || '', bio: formData.bio || '',
-        location: formData.location || '', avatar_url: avatarUrl || '',
-      }).eq('id', user.id)
-      if (updateError) { setSaveError(updateError.message || 'Failed to update profile'); setTimeout(() => setSaveError(''), 3000); return }
+      await profilesService.updateProfile(user.id, {
+        full_name: formData.full_name || '', 
+        bio: formData.bio || '',
+        location: formData.location || '', 
+        avatar_url: avatarUrl || '',
+      })
       setProfile({ ...(profile || {}), ...formData, avatar_url: avatarUrl })
       // Update auth store to ensure persistence across sessions
       useAuthStore.getState().setProfile({ ...(profile || {}), ...formData, avatar_url: avatarUrl })
       setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000)
-    } catch (error: any) {
-      setSaveError(error?.message || 'Failed to update profile'); setTimeout(() => setSaveError(''), 3000)
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Failed to update profile'
+      setSaveError(errorMessage); setTimeout(() => setSaveError(''), 3000)
     } finally { setSaving(false) }
   }
 

@@ -3,10 +3,11 @@
 import { useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { User } from '@supabase/supabase-js'
+import type { Profile } from '@/types'
 
 interface ProfileProviderProps {
   user: User | null
-  profile: any
+  profile: Profile | null
   children: React.ReactNode
 }
 

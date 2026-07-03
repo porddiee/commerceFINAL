@@ -595,4 +595,177 @@ CREATE POLICY "Service role can insert notifications"
 -- 8. Add quantity column to listings table
 -- ============================================
 ALTER TABLE public.listings
-ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1 CHECK (quantity > 0);
+ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1;
+
+-- Drop the old check constraint if it exists
+ALTER TABLE public.listings
+DROP CONSTRAINT IF EXISTS listings_quantity_check;
+
+-- Add new check constraint allowing quantity >= 0
+ALTER TABLE public.listings
+ADD CONSTRAINT listings_quantity_check CHECK (quantity >= 0);
+
+-- Add rating columns to listings table
+ALTER TABLE public.listings
+ADD COLUMN IF NOT EXISTS avg_rating DECIMAL(3, 2) DEFAULT 0,
+ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0;
+
+-- ============================================
+-- 9. Add trigger for review notifications
+-- ============================================
+-- Function to send notification when a review is created
+CREATE OR REPLACE FUNCTION public.notify_on_review()
+RETURNS TRIGGER AS $$
+DECLARE
+    listing_title TEXT;
+    listing_seller_id UUID;
+    notification_title TEXT;
+    notification_content TEXT;
+BEGIN
+    -- Get listing details
+    SELECT title, seller_id
+    INTO listing_title, listing_seller_id
+    FROM public.listings
+    WHERE id = NEW.listing_id;
+    
+    -- Create notification for the seller
+    notification_title := 'New Review Received';
+    notification_content := 'Someone reviewed your product "' || listing_title || '"';
+    
+    PERFORM public.create_notification(
+        listing_seller_id,
+        'review',
+        notification_title,
+        notification_content,
+        '/user/reviews'
+    );
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to notify on review creation
+DROP TRIGGER IF EXISTS trigger_notify_on_review ON public.reviews;
+CREATE TRIGGER trigger_notify_on_review
+    AFTER INSERT ON public.reviews
+    FOR EACH ROW
+    EXECUTE FUNCTION public.notify_on_review();
+
+-- ============================================
+-- 9.5. Add trigger to update listing ratings
+-- ============================================
+-- Function to update listing average rating and review count
+CREATE OR REPLACE FUNCTION public.update_listing_rating()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Calculate new average rating and count
+    UPDATE public.listings
+    SET 
+        avg_rating = (
+            SELECT COALESCE(AVG(rating), 0)
+            FROM public.reviews
+            WHERE listing_id = NEW.listing_id
+        ),
+        review_count = (
+            SELECT COUNT(*)
+            FROM public.reviews
+            WHERE listing_id = NEW.listing_id
+        )
+    WHERE id = NEW.listing_id;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to update rating on review insert
+DROP TRIGGER IF EXISTS trigger_update_rating_insert ON public.reviews;
+CREATE TRIGGER trigger_update_rating_insert
+    AFTER INSERT ON public.reviews
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_listing_rating();
+
+-- Create trigger to update rating on review delete
+DROP TRIGGER IF EXISTS trigger_update_rating_delete ON public.reviews;
+CREATE TRIGGER trigger_update_rating_delete
+    AFTER DELETE ON public.reviews
+    FOR EACH ROW
+    EXECUTE FUNCTION public.update_listing_rating();
+
+-- ============================================
+-- 10. Add RLS policy for review replies
+-- ============================================
+-- Allow reviewees (sellers) to update reviews to add replies
+DROP POLICY IF EXISTS "Reviewees can update reviews to reply" ON public.reviews;
+CREATE POLICY "Reviewees can update reviews to reply"
+    ON public.reviews FOR UPDATE
+    USING (auth.uid() = reviewee_id);
+
+-- ============================================
+-- 11. Add trigger to decrement quantity on order placement
+-- ============================================
+-- Function to decrement listing quantity when order is created
+CREATE OR REPLACE FUNCTION public.decrement_listing_quantity()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Decrement the quantity of the listing
+    UPDATE public.listings
+    SET quantity = GREATEST(quantity - 1, 0)
+    WHERE id = NEW.listing_id;
+    
+    -- If quantity reaches 0, update status to 'sold'
+    UPDATE public.listings
+    SET status = 'sold'
+    WHERE id = NEW.listing_id AND quantity = 0;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to decrement quantity on order creation
+DROP TRIGGER IF EXISTS trigger_decrement_quantity ON public.orders;
+CREATE TRIGGER trigger_decrement_quantity
+    AFTER INSERT ON public.orders
+    FOR EACH ROW
+    EXECUTE FUNCTION public.decrement_listing_quantity();
+
+-- ============================================
+-- 12. Sync existing orders to update quantities
+-- ============================================
+-- Update quantities for listings that have existing orders
+UPDATE public.listings l
+SET quantity = GREATEST(
+    l.quantity - (
+        SELECT COUNT(*) 
+        FROM public.orders o 
+        WHERE o.listing_id = l.id
+    ),
+    0
+)
+WHERE EXISTS (
+    SELECT 1 FROM public.orders o WHERE o.listing_id = l.id
+);
+
+-- Update status to 'sold' for listings with quantity 0
+UPDATE public.listings
+SET status = 'sold'
+WHERE quantity = 0 AND status = 'active';
+
+-- ============================================
+-- 13. Sync existing reviews to update listing ratings
+-- ============================================
+-- Update avg_rating and review_count for listings that have existing reviews
+UPDATE public.listings l
+SET 
+    avg_rating = (
+        SELECT COALESCE(AVG(r.rating), 0)
+        FROM public.reviews r
+        WHERE r.listing_id = l.id
+    ),
+    review_count = (
+        SELECT COUNT(*)
+        FROM public.reviews r
+        WHERE r.listing_id = l.id
+    )
+WHERE EXISTS (
+    SELECT 1 FROM public.reviews r WHERE r.listing_id = l.id
+);

@@ -6,13 +6,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { notificationsService } from '@/services'
+import { toast } from '@/hooks/use-toast'
+import type { Notification } from '@/types'
 import { Bell, Check, CheckCheck, Trash2 } from 'lucide-react'
 
 export default function NotificationsPage() {
   const { user } = useAuthStore()
   const router = useRouter()
   const supabase = createClient()
-  const [notifications, setNotifications] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -26,14 +29,8 @@ export default function NotificationsPage() {
 
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setNotifications(data || [])
+      const data = await notificationsService.getNotificationsByUser(user.id)
+      setNotifications(data)
     } catch (error) {
       console.error('Error fetching notifications:', error)
     } finally {
@@ -43,12 +40,7 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('id', id)
-
-      if (error) throw error
+      await notificationsService.markAsRead(id)
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       )
@@ -61,13 +53,7 @@ export default function NotificationsPage() {
     if (!user) return
 
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false)
-
-      if (error) throw error
+      await notificationsService.markAllAsRead(user.id)
       setNotifications(prev =>
         prev.map(n => ({ ...n, is_read: true }))
       )
@@ -80,20 +66,15 @@ export default function NotificationsPage() {
     if (!user) return
 
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('user_id', user.id)
-
-      if (error) throw error
+      await notificationsService.clearAllNotifications(user.id)
       setNotifications([])
     } catch (error) {
       console.error('Error clearing notifications:', error)
-      alert('Failed to clear notifications')
+      toast({ title: 'Error', description: 'Failed to clear notifications', variant: 'destructive' })
     }
   }
 
-  const handleNotificationClick = async (notification: any) => {
+  const handleNotificationClick = async (notification: Notification) => {
     // Mark as read if unread
     if (!notification.is_read) {
       await markAsRead(notification.id)

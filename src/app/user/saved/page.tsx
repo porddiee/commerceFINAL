@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { createClient } from '@/lib/supabase/client'
-import { useAuthStore } from '@/lib/store/auth'
+import { useAuthStore, useCartStore } from '@/lib/store/auth'
+import { savedListingsService } from '@/services'
+import { toast } from '@/hooks/use-toast'
 import {
   ShoppingCart,
   Bell,
@@ -66,6 +68,7 @@ const CONDITION_STYLES: Record<string, { label: string; cls: string }> = {
 
 export default function SavedListingsPage() {
   const { user } = useAuthStore()
+  const { syncCartCount } = useCartStore()
   const supabase = createClient()
   const router = useRouter()
   const [listings, setListings] = useState<CartListing[]>([])
@@ -77,28 +80,50 @@ export default function SavedListingsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    if (user) fetchSavedListings()
+    if (user) {
+      fetchSavedListings()
+      syncCartCount(user.id)
+    }
   }, [user])
 
   const fetchSavedListings = async () => {
     if (!user) return
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('saved_listings')
-        .select(`*, listings (*)`)
-        .eq('user_id', user.id)
-      if (error) throw error
-
+      const data = await savedListingsService.getSavedListingsByUser(user.id)
+      
+      console.log('Saved listings data:', data)
+      
       const savedMap = new Map()
-      data?.forEach((item: any) => {
+      const listingIds: string[] = []
+      
+      data.forEach((item: { listing_id: string; notify_on_price_drop: boolean }) => {
         savedMap.set(item.listing_id, { notify_on_price_drop: item.notify_on_price_drop })
+        listingIds.push(item.listing_id)
       })
       setSavedItems(savedMap)
-      const fetched = data?.map((item: any) => ({ ...item.listings })).filter(Boolean) || []
-      setListings(fetched)
-      // Auto-select all on load
-      setSelectedIds(new Set(fetched.map((l: CartListing) => l.id)))
+      
+      console.log('Listing IDs to fetch:', listingIds)
+      
+      // Fetch listings separately
+      if (listingIds.length > 0) {
+        const { data: listingsData } = await supabase
+          .from('listings')
+          .select('*')
+          .in('id', listingIds)
+        
+        console.log('Fetched listings:', listingsData)
+        
+        // Filter out listings without valid IDs
+        const fetched = (listingsData || []).filter((l: { id?: string }) => l.id)
+        console.log('Filtered listings with valid IDs:', fetched)
+        setListings(fetched)
+        console.log('Listings state set to:', fetched)
+        setSelectedIds(new Set(fetched.map((l: CartListing) => l.id)))
+      } else {
+        setListings([])
+        setSelectedIds(new Set())
+      }
     } catch (error) {
       console.error('Error fetching cart items:', error)
     } finally {
@@ -107,57 +132,52 @@ export default function SavedListingsPage() {
   }
 
   const handleRemove = async (listingId: string) => {
-    if (!user) return
+    if (!user || !listingId) return
     setRemovingId(listingId)
     try {
-      const { error } = await supabase
-        .from('saved_listings')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      if (error) throw error
-      setListings((prev) => prev.filter((l) => l.id !== listingId))
-      setSavedItems((prev) => {
-        const next = new Map(prev)
-        next.delete(listingId)
-        return next
-      })
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        next.delete(listingId)
-        return next
-      })
+      await savedListingsService.deleteSavedListingByUserAndListing(user.id, listingId)
     } catch (error) {
-      console.error('Error removing saved listing:', error)
-    } finally {
-      setRemovingId(null)
+      // Silently ignore errors - still remove from local state
     }
+    // Always update local state even if service call fails
+    setListings((prev) => prev.filter((l) => l.id !== listingId))
+    setSavedItems((prev) => {
+      const next = new Map(prev)
+      next.delete(listingId)
+      return next
+    })
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(listingId)
+      return next
+    })
+    // Sync cart count with database
+    await syncCartCount(user.id)
+    setRemovingId(null)
   }
 
   const handleTogglePriceDrop = async (listingId: string) => {
     if (!user) return
     setTogglingId(listingId)
-    const currentValue = savedItems.get(listingId)?.notify_on_price_drop || false
     try {
-      const { error } = await supabase
-        .from('saved_listings')
-        .update({ notify_on_price_drop: !currentValue })
-        .eq('user_id', user.id)
-        .eq('listing_id', listingId)
-      if (error) {
-        if (error.message?.includes('column') || error.code === '42703') {
-          alert('The price drop notification feature is not yet available.')
-          return
-        }
-        throw error
-      }
+      await savedListingsService.togglePriceDropNotification(user.id, listingId)
       setSavedItems((prev) => {
         const next = new Map(prev)
+        const currentValue = savedItems.get(listingId)?.notify_on_price_drop || false
         next.set(listingId, { notify_on_price_drop: !currentValue })
         return next
       })
-    } catch (error: any) {
-      console.error('Error updating price drop notification:', error)
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'message' in error) {
+        const err = error as { message?: string; code?: string }
+        if (err.message?.includes('column') || err.code === '42703' || err.message?.includes('Price drop notification feature not available')) {
+          toast({ title: 'Info', description: 'The price drop notification feature is not yet available.' })
+        } else {
+          toast({ title: 'Error', description: 'Failed to update price drop notification', variant: 'destructive' })
+        }
+      } else {
+        toast({ title: 'Error', description: 'Failed to update price drop notification', variant: 'destructive' })
+      }
     } finally {
       setTogglingId(null)
     }
@@ -277,12 +297,15 @@ export default function SavedListingsPage() {
               const isToggling = togglingId === listing.id
               const mainImage = listing.images?.[0]
               const isSelected = selectedIds.has(listing.id)
+              const isUnavailable = listing.status !== 'active'
 
               return (
                 <div
-                  key={listing.id}
+                  key={listing.id || index}
                   className={`group flex gap-3 p-4 rounded-2xl border bg-card transition-all duration-200 ${
                     isRemoving ? 'opacity-40 pointer-events-none scale-[0.99]' : ''
+                  } ${
+                    isUnavailable ? 'opacity-60 grayscale' : ''
                   } ${
                     isSelected
                       ? 'border-indigo-300 dark:border-indigo-700 shadow-sm shadow-indigo-500/10'
@@ -336,6 +359,15 @@ export default function SavedListingsPage() {
                             <Tag className="h-2.5 w-2.5" />
                             {cond.label}
                           </span>
+                          {isUnavailable && (
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              listing.status === 'sold'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-950/40 dark:text-gray-400'
+                            }`}>
+                              {listing.status === 'sold' ? 'Sold' : 'Unavailable'}
+                            </span>
+                          )}
                           {listing.location && (
                             <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                               <MapPin className="h-2.5 w-2.5" />
@@ -424,8 +456,8 @@ export default function SavedListingsPage() {
                     Select items to see summary
                   </p>
                 ) : (
-                  selectedListings.map((listing) => (
-                    <div key={listing.id} className="flex items-center gap-2 text-xs">
+                  selectedListings.map((listing, index) => (
+                    <div key={listing.id || index} className="flex items-center gap-2 text-xs">
                       <div className="w-8 h-8 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
                         {listing.images?.[0] ? (
                           <Image src={listing.images[0]} alt={listing.title} fill className="object-cover" sizes="32px" />

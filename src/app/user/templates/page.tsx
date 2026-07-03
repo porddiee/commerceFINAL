@@ -1,25 +1,47 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import { Plus, Copy, Trash2, FileText } from 'lucide-react'
 import Link from 'next/link'
+import { categoriesService, listingTemplatesService } from '@/services'
+
+interface ListingTemplate {
+  id: string
+  name: string
+  title?: string
+  description?: string
+  category_id?: string
+  condition?: string
+  location?: string
+  currency?: string
+  buy_type?: string
+  user_id: string
+  created_at: string
+  updated_at: string
+}
+
+interface Category {
+  id: string
+  name: string
+  slug: string
+}
 
 export default function ListingTemplatesPage() {
+  const router = useRouter()
   const { user } = useAuthStore()
-  const supabase = createClient()
-  const [templates, setTemplates] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [templates, setTemplates] = useState<ListingTemplate[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingTemplate, setEditingTemplate] = useState<any>(null)
+  const [editingTemplate, setEditingTemplate] = useState<ListingTemplate | null>(null)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -43,16 +65,8 @@ export default function ListingTemplatesPage() {
     if (!user) return
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from('listing_templates')
-        .select(`
-          *,
-          categories (name)
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-      
-      setTemplates(data || [])
+      const data = await listingTemplatesService.getUserTemplates(user.id)
+      setTemplates(data)
     } catch (error) {
       console.error('Error fetching templates:', error)
     } finally {
@@ -61,8 +75,8 @@ export default function ListingTemplatesPage() {
   }
 
   const fetchCategories = async () => {
-    const { data } = await supabase.from('categories').select('*').order('name')
-    setCategories(data || [])
+    const data = await categoriesService.getAllCategories()
+    setCategories(data)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,16 +91,9 @@ export default function ListingTemplatesPage() {
       }
 
       if (editingTemplate) {
-        const { error } = await supabase
-          .from('listing_templates')
-          .update(templateData)
-          .eq('id', editingTemplate.id)
-        if (error) throw error
+        await listingTemplatesService.updateTemplate(editingTemplate.id, templateData)
       } else {
-        const { error } = await supabase
-          .from('listing_templates')
-          .insert(templateData)
-        if (error) throw error
+        await listingTemplatesService.createTemplate(templateData)
       }
 
       setDialogOpen(false)
@@ -107,7 +114,7 @@ export default function ListingTemplatesPage() {
     }
   }
 
-  const handleEdit = (template: any) => {
+  const handleEdit = (template: ListingTemplate) => {
     setEditingTemplate(template)
     setFormData({
       name: template.name,
@@ -126,21 +133,17 @@ export default function ListingTemplatesPage() {
     if (!confirm('Are you sure you want to delete this template?')) return
     
     try {
-      const { error } = await supabase
-        .from('listing_templates')
-        .delete()
-        .eq('id', id)
-      if (error) throw error
+      await listingTemplatesService.deleteTemplate(id)
       fetchTemplates()
     } catch (error) {
       console.error('Error deleting template:', error)
     }
   }
 
-  const handleCreateFromTemplate = (template: any) => {
+  const handleCreateFromTemplate = (template: ListingTemplate) => {
     // Store template data in localStorage to use in create listing page
     localStorage.setItem('listingTemplate', JSON.stringify(template))
-    window.location.href = '/user/products/create'
+    router.push('/user/products/create')
   }
 
   return (

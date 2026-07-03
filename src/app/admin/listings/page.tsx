@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { createClient } from '@/lib/supabase/client'
+import { listingsService, profilesService } from '@/services'
 import {
   Search,
   MoreHorizontal,
@@ -30,7 +30,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export default function AdminListingsPage() {
-  const supabase = createClient()
   const [listings, setListings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -43,25 +42,13 @@ export default function AdminListingsPage() {
   const fetchListings = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Supabase error:', error.message, error.details, error.hint, error.code)
-        throw error
-      }
+      const data = await listingsService.getAllListings()
 
       // Fetch seller profiles separately
       const listingsWithSellers = await Promise.all(
         (data || []).map(async (listing) => {
           try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', listing.seller_id)
-              .single()
+            const profile = await profilesService.getProfileById(listing.seller_id)
             return {
               ...listing,
               profiles: profile
@@ -76,8 +63,8 @@ export default function AdminListingsPage() {
       )
 
       setListings(listingsWithSellers)
-    } catch (error: any) {
-      console.error('Error fetching listings:', error?.message || error)
+    } catch (error: unknown) {
+      console.error('Error fetching listings:', error)
     } finally {
       setLoading(false)
     }
@@ -87,9 +74,7 @@ export default function AdminListingsPage() {
     if (!confirm('Are you sure you want to delete this listing?')) return
 
     try {
-      const { error } = await supabase.from('listings').delete().eq('id', id)
-      if (error) throw error
-
+      await listingsService.deleteListing(id)
       // Update local state directly
       setListings(prev => prev.filter(l => l.id !== id))
     } catch (error) {

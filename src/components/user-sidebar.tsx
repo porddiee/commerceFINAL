@@ -20,11 +20,13 @@ import {
 import { useSidebarStore } from '@/lib/store/sidebar'
 import { useAuthStore } from '@/lib/store/auth'
 import { createClient } from '@/lib/supabase/client'
+import { messagesService } from '@/services'
+import type { LucideIcon } from 'lucide-react'
 
 interface NavItem {
   title: string
   href: string
-  icon: any
+  icon: LucideIcon
 }
 
 const publicNavItems: NavItem[] = [
@@ -63,17 +65,48 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
     }
   }, [user, pathname])
 
+  // Real-time subscription for message updates
+  useEffect(() => {
+    if (!user) return
+
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`sidebar-messages:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUnreadMessages()
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${user.id}`,
+        },
+        () => {
+          fetchUnreadMessages()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user])
+
   const fetchUnreadMessages = async () => {
     if (!user) return
     try {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('receiver_id', user.id)
-        .is('is_read', false)
-      
-      const filteredMessages = data?.filter((msg: any) => !msg.deleted_by_receiver) || []
+      const filteredMessages = await messagesService.getUnreadMessagesForUser(user.id)
       setUnreadMessageCount(filteredMessages.length)
     } catch (error) {
       console.error('Error fetching unread messages:', error)
@@ -86,7 +119,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
   return (
     <>
       {/* Mobile menu button - outside sidebar so it's always visible */}
-      <div className="lg:hidden fixed top-20 left-4 z-[100]">
+      <div className="lg:hidden fixed top-4 left-4 z-[100]">
         <Button
           variant="outline"
           size="icon"

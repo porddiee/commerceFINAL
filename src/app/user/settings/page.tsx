@@ -8,11 +8,14 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import { useLanguageStore } from '@/lib/store/language'
 import { Language } from '@/lib/translations'
+import { profilesService, authService } from '@/services'
+import { toast } from '@/hooks/use-toast'
 import {
   Upload, Shield, Lock, Bell, Eye, Globe, CheckCircle, XCircle, Clock,
   Settings, Loader2, MapPin, BarChart3, MessageSquare, ShoppingBag,
   Monitor, Sun, Moon, Accessibility, Sparkles,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 /* ─────────────────────── Toggle switch ─────────────────────── */
 function Toggle({
@@ -41,7 +44,7 @@ function Toggle({
 /* ─────────────────────── Setting row ─────────────────────── */
 function SettingRow({
   icon: Icon, title, description, children,
-}: { icon?: any; title: string; description: string; children: React.ReactNode }) {
+}: { icon?: LucideIcon; title: string; description: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -63,7 +66,7 @@ function SettingRow({
 /* ─────────────────────── Section card ─────────────────────── */
 function SectionCard({
   icon: Icon, title, description, children, accent = 'indigo',
-}: { icon: any; title: string; description: string; children: React.ReactNode; accent?: string }) {
+}: { icon?: LucideIcon; title: string; description: string; children: React.ReactNode; accent?: string }) {
   const accentMap: Record<string, string> = {
     indigo: 'from-indigo-500 to-blue-600',
     emerald: 'from-emerald-500 to-teal-600',
@@ -164,14 +167,12 @@ export default function SettingsPage() {
     
     // Load phone and email verification status from profile
     if (user) {
-      supabase.from('profiles').select('phone, phone_verified').eq('id', user.id).single().then(({ data }) => {
-        if (data) {
-          setPhone(data.phone || '')
-          setPhoneVerified(data.phone_verified || false)
-        }
+      profilesService.getPhoneVerificationStatus(user.id).then((data) => {
+        setPhone(data.phone || '')
+        setPhoneVerified(data.phone_verified || false)
       })
       // Check email verification from auth
-      supabase.auth.getUser().then(({ data }) => {
+      authService.getUser().then((data) => {
         setEmailVerified(data.user?.email_confirmed_at != null)
       })
     }
@@ -208,28 +209,25 @@ export default function SettingsPage() {
     applyAccessibilitySettings(accessibilitySettings)
   }, [accessibilitySettings])
 
-  const saveSetting = (key: string, value: any) => {
+  const saveSetting = (key: string, value: unknown) => {
     localStorage.setItem(key, JSON.stringify(value))
   }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('Passwords do not match')
+      toast({ title: 'Error', description: 'Passwords do not match', variant: 'destructive' })
       return
     }
 
     setLoading(true)
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: passwordData.newPassword,
-      })
-      if (error) throw error
-      alert('Password updated successfully!')
+      await authService.updatePassword(passwordData.newPassword)
+      toast({ title: 'Success', description: 'Password updated successfully!' })
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (error) {
       console.error('Error updating password:', error)
-      alert('Failed to update password')
+      toast({ title: 'Error', description: 'Failed to update password', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -241,52 +239,19 @@ export default function SettingsPage() {
 
     setVerificationLoading(true)
     try {
-      // Upload file to Supabase storage
-      const fileExt = verificationFile.name.split('.').pop()
-      const fileName = `${user.id}-verification-${Date.now()}.${fileExt}`
-      const filePath = `verification-documents/${fileName}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from('verification-documents')
-        .upload(filePath, verificationFile, { upsert: true })
-      
-      if (uploadError) {
-        // Try to create bucket if it doesn't exist
-        if (uploadError.message.includes('Bucket not found') || uploadError.message.includes('bucket')) {
-          throw new Error('Storage bucket "verification-documents" not found. Please contact support.')
-        }
-        throw uploadError
-      }
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('verification-documents')
-        .getPublicUrl(filePath)
-      
-      // Update profile with verification document URL
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          verification_document: publicUrl,
-          verification_status: 'pending',
-        })
-        .eq('id', user.id)
-      
-      if (error) throw error
-      
-      alert('Verification request submitted successfully!')
-      const { data: updatedProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      await profilesService.submitVerificationDocument(user.id, verificationFile)
+      toast({ title: 'Success', description: 'Verification request submitted successfully!' })
+      const updatedProfile = await profilesService.getProfileById(user.id)
       if (updatedProfile) {
         useAuthStore.getState().setProfile(updatedProfile)
       }
       setVerificationFile(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting verification:', error)
-      alert(error.message || 'Failed to submit verification request')
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'Failed to submit verification request'
+      toast({ title: 'Error', description: errorMessage, variant: 'destructive' })
     } finally {
       setVerificationLoading(false)
     }
@@ -324,10 +289,10 @@ export default function SettingsPage() {
       await new Promise(resolve => setTimeout(resolve, 1000))
       setTwoFactorEnabled(true)
       setShow2FAModal(false)
-      alert('Two-factor authentication enabled! In production, you would scan a QR code with an authenticator app.')
+      toast({ title: 'Success', description: 'Two-factor authentication enabled! In production, you would scan a QR code with an authenticator app.' })
     } catch (error) {
       console.error('Error enabling 2FA:', error)
-      alert('Failed to enable 2FA')
+      toast({ title: 'Error', description: 'Failed to enable 2FA', variant: 'destructive' })
     } finally {
       setTwoFactorLoading(false)
     }
@@ -339,10 +304,10 @@ export default function SettingsPage() {
     try {
       await new Promise(resolve => setTimeout(resolve, 500))
       setTwoFactorEnabled(false)
-      alert('Two-factor authentication disabled')
+      toast({ title: 'Success', description: 'Two-factor authentication disabled' })
     } catch (error) {
       console.error('Error disabling 2FA:', error)
-      alert('Failed to disable 2FA')
+      toast({ title: 'Error', description: 'Failed to disable 2FA', variant: 'destructive' })
     } finally {
       setTwoFactorLoading(false)
     }
@@ -350,23 +315,17 @@ export default function SettingsPage() {
 
   const handleSendPhoneVerification = async () => {
     if (!phone || !user) {
-      alert('Please enter a phone number first')
+      toast({ title: 'Error', description: 'Please enter a phone number first', variant: 'destructive' })
       return
     }
     setPhoneVerificationLoading(true)
     try {
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-      const { error } = await supabase.from('profiles').update({
-        phone_verification_code: verificationCode,
-        phone_verification_expires: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-        phone: phone,
-      }).eq('id', user.id)
-      if (error) throw error
-      alert(`Verification code sent to ${phone}: ${verificationCode}`)
+      await profilesService.requestPhoneVerification(user.id, phone)
+      toast({ title: 'Success', description: `Verification code sent to ${phone}` })
       setPhoneVerificationSent(true)
     } catch (error) {
       console.error('Error sending phone verification:', error)
-      alert('Failed to send verification code')
+      toast({ title: 'Error', description: 'Failed to send verification code', variant: 'destructive' })
     } finally {
       setPhoneVerificationLoading(false)
     }
@@ -374,31 +333,19 @@ export default function SettingsPage() {
 
   const handleVerifyPhoneCode = async () => {
     if (!phoneVerificationCode || !user) {
-      alert('Please enter the verification code')
+      toast({ title: 'Error', description: 'Please enter the verification code', variant: 'destructive' })
       return
     }
     setPhoneVerificationLoading(true)
     try {
-      const { data: profileData, error: fetchError } = await supabase.from('profiles').select('phone_verification_code, phone_verification_expires').eq('id', user.id).single()
-      if (fetchError) throw fetchError
-      if (new Date() > new Date(profileData.phone_verification_expires)) {
-        alert('Code expired. Please request a new one.')
-        setPhoneVerificationSent(false)
-        return
-      }
-      if (profileData.phone_verification_code !== phoneVerificationCode) {
-        alert('Invalid verification code')
-        return
-      }
-      const { error: updateError } = await supabase.from('profiles').update({ phone_verified: true, phone_verification_code: null, phone_verification_expires: null }).eq('id', user.id)
-      if (updateError) throw updateError
+      await profilesService.verifyPhoneCode(user.id, phoneVerificationCode)
       setPhoneVerified(true)
       setPhoneVerificationSent(false)
       setPhoneVerificationCode('')
-      alert('Phone verified successfully!')
+      toast({ title: 'Success', description: 'Phone verified successfully!' })
     } catch (error) {
       console.error('Error verifying phone:', error)
-      alert('Failed to verify phone number')
+      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Failed to verify phone number', variant: 'destructive' })
     } finally {
       setPhoneVerificationLoading(false)
     }
@@ -408,15 +355,11 @@ export default function SettingsPage() {
     if (!user) return
     setEmailVerificationLoading(true)
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: user.email!,
-      })
-      if (error) throw error
-      alert('Verification email sent! Please check your inbox and click the confirmation link.')
+      await authService.resendConfirmationEmail(user.email!)
+      toast({ title: 'Success', description: 'Verification email sent! Please check your inbox and click the confirmation link.' })
     } catch (error) {
       console.error('Error sending email verification:', error)
-      alert('Failed to send verification email')
+      toast({ title: 'Error', description: 'Failed to send verification email', variant: 'destructive' })
     } finally {
       setEmailVerificationLoading(false)
     }
@@ -442,37 +385,14 @@ export default function SettingsPage() {
     }
     setEmailVerificationLoading(true)
     try {
-      const { error } = await supabase.auth.updateUser({
-        email: newEmail,
-      })
-      if (error) {
-        if (error.message.includes('already been registered')) {
-          setEmailNotification({ type: 'error', message: 'This email address is already registered. Please use a different email.' })
-          setEmailVerificationLoading(false)
-          setTimeout(() => setEmailNotification(null), 3000)
-          return
-        }
-        if (error.message.includes('invalid format')) {
-          setEmailNotification({ type: 'error', message: 'Please enter a valid email address' })
-          setEmailVerificationLoading(false)
-          setTimeout(() => setEmailNotification(null), 3000)
-          return
-        }
-        if (error.message.includes('rate limit')) {
-          setEmailNotification({ type: 'error', message: 'Too many email change attempts. Please wait a few minutes before trying again.' })
-          setEmailVerificationLoading(false)
-          setTimeout(() => setEmailNotification(null), 5000)
-          return
-        }
-        throw error
-      }
+      await authService.updateEmail(newEmail)
       setEmailNotification({ type: 'success', message: 'Email change request sent! Please check your current email for confirmation.' })
       setEditingEmail(false)
       setNewEmail('')
       setTimeout(() => setEmailNotification(null), 5000)
       // When email is changed, it's no longer verified until user confirms
       setEmailVerified(false)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error changing email:', error)
       setEmailNotification({ type: 'error', message: 'Failed to change email address. Please try again.' })
       setTimeout(() => setEmailNotification(null), 3000)
@@ -539,7 +459,7 @@ export default function SettingsPage() {
                   .update({ verification_status: 'none' })
                   .eq('id', user.id)
                 if (error) throw error
-                alert('Verification status reset. You can now submit a new request.')
+                toast({ title: 'Success', description: 'Verification status reset. You can now submit a new request.' })
                 const { data: updatedProfile } = await supabase
                   .from('profiles')
                   .select('*')
@@ -550,7 +470,7 @@ export default function SettingsPage() {
                 }
               } catch (error) {
                 console.error('Error resetting verification:', error)
-                alert('Failed to reset verification status. Please try again.')
+                toast({ title: 'Error', description: 'Failed to reset verification status. Please try again.', variant: 'destructive' })
               }
             }}
           >

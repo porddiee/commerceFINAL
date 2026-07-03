@@ -81,7 +81,7 @@ export default function ListingCard({
 
               {/* Sliding Description Overlay (reveals on hover directly above product title) — Hidden on mobile */}
               {description && (
-                <div className="hidden sm:flex absolute inset-x-0 bottom-0 bg-slate-950/90 text-white p-3 text-xs translate-y-full group-hover:translate-y-0 transition-transform duration-300 backdrop-blur-sm flex flex-col justify-center pointer-events-none select-none z-10 h-[70%]">
+                <div className="hidden sm:flex absolute inset-x-0 bottom-0 bg-slate-950/90 text-white p-3 text-xs translate-y-full group-hover:translate-y-0 transition-transform duration-300 backdrop-blur-sm flex-col justify-center pointer-events-none select-none z-10 h-[70%]">
                   <p className="line-clamp-4 leading-relaxed text-slate-200 font-medium">
                     {description}
                   </p>
@@ -99,6 +99,15 @@ export default function ListingCard({
                   {condition.replace('_', ' ')}
                 </span>
               </div>
+
+              {/* Sold Out Badge */}
+              {quantity === 0 && (
+                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-20">
+                  <div className="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-lg border-2 border-red-500">
+                    SOLD OUT
+                  </div>
+                </div>
+              )}
 
               {/* Floating Add to Cart Button */}
               {onToggleSave && (

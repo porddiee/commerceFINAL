@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { authService, profilesService } from '@/services'
 import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, ArrowRight, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 
@@ -50,18 +51,20 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+      const data = await authService.signInWithPassword({ email, password })
       if (data.user) {
         setUser(data.user)
-        const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single()
+        const profile = await profilesService.getProfileById(data.user.id)
         if (profile) {
           setProfile(profile)
           router.push(profile.role === 'admin' ? '/admin' : '/user')
         }
       }
-    } catch (error: any) {
-      setError(error.message)
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'An error occurred'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -71,14 +74,15 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      const data = await authService.signInWithOAuth('google', {
+        redirectTo: `${window.location.origin}/auth/callback`,
       })
-      if (error) throw error
       if (data.url) window.location.href = data.url
-    } catch (error: any) {
-      setError(error.message)
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'message' in error
+        ? (error as { message: string }).message
+        : 'An error occurred'
+      setError(errorMessage)
       setLoading(false)
     }
   }

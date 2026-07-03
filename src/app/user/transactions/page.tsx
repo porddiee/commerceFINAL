@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
+import { toast } from '@/hooks/use-toast'
 import { 
   Package, 
   DollarSign, 
@@ -45,6 +46,8 @@ export default function TransactionsPage() {
   const [sales, setSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('purchases') // purchases, sales
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [touchStart, setTouchStart] = useState(0)
   
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('')
@@ -98,8 +101,8 @@ export default function TransactionsPage() {
 
       // 3. Fetch reviews for delivered orders to check if already reviewed
       const deliveredListingIds = (ordersData || [])
-        .filter((order: any) => order.status === 'delivered' && order.listing_id)
-        .map((order: any) => order.listing_id)
+        .filter((order: { status: string; listing_id?: string }) => order.status === 'delivered' && order.listing_id)
+        .map((order: { listing_id?: string }) => order.listing_id)
       
       if (deliveredListingIds.length > 0) {
         const { data: reviews } = await supabase
@@ -108,7 +111,7 @@ export default function TransactionsPage() {
           .eq('reviewer_id', user.id)
           .in('listing_id', deliveredListingIds)
         
-        const reviewedSet = new Set(reviews?.map((r: any) => r.listing_id) || [])
+        const reviewedSet = new Set(reviews?.map((r: { listing_id?: string }) => r.listing_id) || [])
         setReviewedListings(reviewedSet)
       }
     } catch (error) {
@@ -211,7 +214,7 @@ export default function TransactionsPage() {
       fetchTransactions()
     } catch (error) {
       console.error('Error updating order status:', error)
-      alert('Failed to update order status')
+      toast({ title: 'Error', description: 'Failed to update order status', variant: 'destructive' })
     }
   }
 
@@ -226,6 +229,19 @@ export default function TransactionsPage() {
     navigator.clipboard.writeText(text)
     setCopiedId(text)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.touches[0].clientY)
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEnd = e.changedTouches[0].clientY
+    const diff = touchEnd - touchStart
+    if (diff > 100 && !isRefreshing && window.scrollY === 0) {
+      setIsRefreshing(true)
+      fetchTransactions().finally(() => setIsRefreshing(false))
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -278,7 +294,7 @@ export default function TransactionsPage() {
   }
 
   // --- Calculations for Overview Stats ---
-  const getStats = (items: any[], type: 'purchases' | 'sales') => {
+  const getStats = (items: { status: string; total_amount?: number }[], type: 'purchases' | 'sales') => {
     const validItems = items.filter(item => item.status !== 'cancelled')
     const totalAmount = validItems.reduce((acc, item) => acc + (item.total_amount || 0), 0)
     const activeCount = items.filter(item => ['pending', 'pending_confirmation', 'processing', 'shipped'].includes(item.status)).length
@@ -295,7 +311,7 @@ export default function TransactionsPage() {
   const salesStats = getStats(sales, 'sales')
 
   // --- Filtering Logic ---
-  const filterList = (list: any[]) => {
+  const filterList = (list: { status: string; listing_id?: string; total_amount?: number; created_at?: string }[]) => {
     return list.filter(item => {
       // 1. Search term match (Listing title or Order ID)
       const matchesSearch = 
@@ -318,41 +334,103 @@ export default function TransactionsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-100 dark:border-indigo-950"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+      <div className="p-2 sm:p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8">
+        {/* Page Header Skeleton */}
+        <div className="relative overflow-hidden p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
+          <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 md:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4">
+              <div className="w-6 h-6 sm:w-8 md:w-10 sm:h-8 md:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-white/20 to-white/30 animate-pulse" />
+              <div className="space-y-1">
+                <div className="h-3 w-24 bg-gradient-to-r from-white/20 to-white/30 rounded animate-pulse" />
+                <div className="h-5 w-32 bg-gradient-to-r from-white/20 to-white/30 rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
         </div>
-        <p className="mt-4 text-muted-foreground font-medium animate-pulse">Loading transaction history...</p>
+
+        {/* Tabs Skeleton */}
+        <div className="bg-slate-100 p-1 dark:bg-slate-800/80 rounded-lg sm:rounded-xl grid grid-cols-2 max-w-md">
+          <div className="h-8 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-lg animate-pulse" />
+          <div className="h-8 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-lg animate-pulse" />
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="border-0 shadow-sm bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900/20 dark:to-slate-900/30 border-l-2 sm:border-l-4 border-slate-300 dark:border-slate-700 rounded-lg sm:rounded-xl">
+              <div className="p-3 sm:p-4 md:p-5 flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="h-3 w-20 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                  <div className="h-6 w-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                </div>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Search & Filter Skeleton */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-3 md:gap-4 bg-slate-50 dark:bg-slate-900/40 p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl border">
+          <div className="relative flex-1 max-w-md h-10 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-lg animate-pulse" />
+          <div className="flex gap-2">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-8 w-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-full animate-pulse" />
+            ))}
+          </div>
+        </div>
+
+        {/* Transaction Cards Skeleton */}
+        <div className="space-y-3 sm:space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl">
+              <div className="p-2 sm:p-3 md:p-4 lg:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50/50 dark:bg-slate-900/20">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="h-3 w-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                    <div className="h-5 w-20 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                  </div>
+                  <div className="h-3 w-32 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                </div>
+                <div className="h-6 w-20 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded-full animate-pulse" />
+              </div>
+              <div className="p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-5">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-lg sm:rounded-xl bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 w-3/4 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                  <div className="h-4 w-1/2 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                  <div className="flex gap-2">
+                    <div className="h-4 w-24 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                    <div className="h-4 w-16 bg-gradient-to-r from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800 rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-300">
+    <div 
+      className="p-2 sm:p-4 md:p-6 lg:p-8 max-w-6xl mx-auto space-y-3 sm:space-y-4 md:space-y-6 lg:space-y-8 animate-in fade-in duration-300"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Page Header */}
-      <div className="relative overflow-hidden p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
-        <div className="absolute top-0 right-0 w-40 sm:w-56 h-40 sm:h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="relative overflow-hidden p-2 sm:p-3 md:p-4 lg:p-6 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-blue-800 shadow-lg shadow-indigo-500/10 border border-indigo-500/20">
+        <div className="absolute top-0 right-0 w-24 sm:w-40 md:w-56 h-24 sm:h-40 md:h-56 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
               <Package className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
-              <p className="text-[9px] sm:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Order History</p>
-              <h1 className="text-lg sm:text-2xl font-extrabold text-white tracking-tight leading-tight">My Transactions</h1>
-              <p className="text-[10px] sm:text-xs font-semibold text-indigo-200/80 mt-0.5">Track, manage, and review your purchases and shop sales.</p>
+              <p className="text-[7px] sm:text-[9px] md:text-[10px] font-bold text-indigo-200 uppercase tracking-widest mb-0.5">Order History</p>
+              <h1 className="text-sm sm:text-lg md:text-2xl font-extrabold text-white tracking-tight leading-tight">My Transactions</h1>
+              <p className="text-[8px] sm:text-[10px] md:text-xs font-semibold text-indigo-200/80 mt-0.5">Track, manage, and review your purchases and shop sales.</p>
             </div>
           </div>
-          <Button
-            onClick={fetchTransactions}
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold rounded-xl h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm transition-all"
-          >
-            <RefreshCw className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            Refresh
-          </Button>
         </div>
       </div>
 
@@ -362,85 +440,85 @@ export default function TransactionsPage() {
         setStatusFilter('all') // Reset filters on tab switch
         setSearchTerm('')
       }}>
-        <TabsList className="bg-slate-100 p-1 dark:bg-slate-800/80 rounded-xl grid grid-cols-2 max-w-md">
+        <TabsList className="bg-slate-100 p-1 dark:bg-slate-800/80 rounded-lg sm:rounded-xl grid grid-cols-2 max-w-md">
           <TabsTrigger 
             value="purchases" 
-            className="rounded-lg py-2.5 font-semibold text-sm data-[state=active]:bg-white data-[state=active]:text-indigo-600 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm transition-all"
+            className="rounded-lg py-1.5 sm:py-2.5 font-semibold text-[10px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-indigo-600 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm transition-all"
           >
-            <ArrowDownLeft className="h-4 w-4 mr-2 text-emerald-500" />
+            <ArrowDownLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-emerald-500" />
             Purchases ({orders.length})
           </TabsTrigger>
           <TabsTrigger 
             value="sales" 
-            className="rounded-lg py-2.5 font-semibold text-sm data-[state=active]:bg-white data-[state=active]:text-indigo-600 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm transition-all"
+            className="rounded-lg py-1.5 sm:py-2.5 font-semibold text-[10px] sm:text-xs md:text-sm data-[state=active]:bg-white data-[state=active]:text-indigo-600 dark:data-[state=active]:bg-gray-900 dark:data-[state=active]:text-indigo-400 data-[state=active]:shadow-sm transition-all"
           >
-            <ArrowUpRight className="h-4 w-4 mr-2 text-blue-500" />
+            <ArrowUpRight className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 text-blue-500" />
             Sales ({sales.length})
           </TabsTrigger>
         </TabsList>
 
         {/* Stats Grid Component */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-l-4 border-indigo-500">
-            <CardContent className="p-5 flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-l-2 sm:border-l-4 border-indigo-500 rounded-lg sm:rounded-xl">
+            <CardContent className="p-3 sm:p-4 md:p-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   {activeTab === 'purchases' ? 'Total Spent' : 'Total Revenue'}
                 </p>
-                <h3 className="text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
                   {formatPrice(activeTab === 'purchases' ? purchasesStats.totalAmount : salesStats.totalAmount, 'PHP')}
                 </h3>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                {activeTab === 'purchases' ? <DollarSign className="h-6 w-6" /> : <TrendingUp className="h-6 w-6" />}
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg sm:rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                {activeTab === 'purchases' ? <DollarSign className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" /> : <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-l-4 border-amber-500">
-            <CardContent className="p-5 flex items-center justify-between">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-l-2 sm:border-l-4 border-amber-500 rounded-lg sm:rounded-xl">
+            <CardContent className="p-3 sm:p-4 md:p-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Transactions</p>
-                <h3 className="text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
+                <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">Active Transactions</p>
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
                   {activeTab === 'purchases' ? purchasesStats.activeCount : salesStats.activeCount}
                 </h3>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                <Clock className="h-6 w-6 animate-pulse" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg sm:rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 animate-pulse" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-l-4 border-emerald-500">
-            <CardContent className="p-5 flex items-center justify-between">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-l-2 sm:border-l-4 border-emerald-500 rounded-lg sm:rounded-xl">
+            <CardContent className="p-3 sm:p-4 md:p-5 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Completed Deals</p>
-                <h3 className="text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
+                <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">Completed Deals</p>
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold mt-1 text-slate-800 dark:text-slate-100">
                   {activeTab === 'purchases' ? purchasesStats.completedCount : salesStats.completedCount}
                 </h3>
               </div>
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                <CheckCircle className="h-6 w-6" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-lg sm:rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Search & Badges Filter Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-3 md:gap-4 bg-slate-50 dark:bg-slate-900/40 p-2 sm:p-3 md:p-4 rounded-lg sm:rounded-xl border">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input 
               type="text"
               placeholder="Search by product name or order ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 bg-white dark:bg-slate-950 border-slate-200 focus-visible:ring-indigo-500"
+              className="pl-7 sm:pl-9 bg-white dark:bg-slate-950 border-slate-200 focus-visible:ring-indigo-500 text-[11px] sm:text-xs md:text-sm"
             />
           </div>
           
-          <div className="flex flex-wrap gap-1.5 items-center">
-            <span className="text-xs font-semibold text-muted-foreground mr-1">Status:</span>
+          <div className="flex flex-wrap gap-1 sm:gap-1.5 items-center">
+            <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground mr-1">Status:</span>
             {[
               { label: 'All', value: 'all' },
               { label: 'Pending', value: 'pending' },
@@ -452,7 +530,7 @@ export default function TransactionsPage() {
               <button
                 key={btn.value}
                 onClick={() => setStatusFilter(btn.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors border ${
+                className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium rounded-full transition-colors border ${
                   statusFilter === btn.value
                     ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
                     : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400'
@@ -465,21 +543,21 @@ export default function TransactionsPage() {
         </div>
 
         {/* Tab 1: Purchases Content */}
-        <TabsContent value="purchases" className="space-y-4 outline-none">
+        <TabsContent value="purchases" className="space-y-3 sm:space-y-4 outline-none">
           {filteredOrders.length === 0 ? (
-            <Card className="border border-dashed border-slate-300 dark:border-slate-800 py-16">
+            <Card className="border border-dashed border-slate-300 dark:border-slate-800 py-8 sm:py-12 md:py-16 rounded-lg sm:rounded-xl">
               <CardContent className="flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center mb-4 text-muted-foreground">
-                  <Package className="h-8 w-8" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center mb-3 sm:mb-4 text-muted-foreground">
+                  <Package className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No orders found</h3>
-                <p className="text-muted-foreground max-w-sm text-center mt-1">
+                <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">No orders found</h3>
+                <p className="text-muted-foreground max-w-sm text-center mt-1 text-[11px] sm:text-xs md:text-sm">
                   {searchTerm || statusFilter !== 'all' 
                     ? "We couldn't find any orders matching your current search or filters." 
                     : "You haven't purchased anything yet. Explore our listing collections!"}
                 </p>
                 {!searchTerm && statusFilter === 'all' && (
-                  <Button asChild className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md px-6">
+                  <Button asChild className="mt-4 sm:mt-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg sm:rounded-xl shadow-md px-4 sm:px-6 text-[11px] sm:text-xs md:text-sm">
                     <Link href="/browse">Browse Marketplace</Link>
                   </Button>
                 )}
@@ -495,14 +573,14 @@ export default function TransactionsPage() {
               return (
                 <Card 
                   key={order.id} 
-                  className="overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow duration-200 bg-white dark:bg-slate-950"
+                  className="overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow duration-200 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl"
                 >
                   {/* Card Header Section */}
-                  <div className="p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">ORDER ID</span>
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-850 px-2 py-0.5 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                  <div className="p-2 sm:p-3 md:p-4 lg:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50/50 dark:bg-slate-900/20">
+                    <div className="space-y-0.5 sm:space-y-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">ORDER ID</span>
+                        <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-slate-850 px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
                           <span>{order.id.slice(0, 8).toUpperCase()}</span>
                           <button 
                             onClick={() => copyToClipboard(order.id)} 
@@ -510,15 +588,15 @@ export default function TransactionsPage() {
                             title="Copy full order ID"
                           >
                             {copiedId === order.id ? (
-                              <Check className="h-3 w-3 text-emerald-500" />
+                              <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500" />
                             ) : (
-                              <Copy className="h-3 w-3" />
+                              <Copy className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             )}
                           </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>Ordered on {new Date(order.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -528,9 +606,9 @@ export default function TransactionsPage() {
                   </div>
 
                   {/* Card Body Section */}
-                  <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
+                  <div className="p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-5">
                     {/* Item Image */}
-                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border flex-shrink-0 group">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border flex-shrink-0 group">
                       <img
                         src={image}
                         alt={listing?.title}
@@ -540,45 +618,45 @@ export default function TransactionsPage() {
 
                     {/* Item Details */}
                     <div className="flex-1 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-bold text-lg text-slate-950 dark:text-white line-clamp-1 hover:underline">
+                      <div className="space-y-0.5 sm:space-y-1">
+                        <h3 className="font-bold text-sm sm:text-base md:text-lg text-slate-950 dark:text-white line-clamp-1 hover:underline">
                           <Link href={`/products/${listing?.id}`}>{listing?.title}</Link>
                         </h3>
-                        <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
+                        <p className="text-base sm:text-lg md:text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
                           {formatPrice(order.total_amount || listing?.price, 'PHP')}
                         </p>
                       </div>
 
                       {/* Counterparty / Seller details */}
-                      <div className="flex items-center justify-between gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar className="h-8 w-8 border border-indigo-100">
+                      <div className="flex items-center justify-between gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 dark:border-slate-900">
+                        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5">
+                          <Avatar className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 border border-indigo-100">
                             <AvatarImage src={order.seller?.avatar_url || ''} />
-                            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-50 text-indigo-700 font-bold text-xs uppercase">
-                              {order.seller?.full_name?.slice(0, 2) || <User className="h-4 w-4" />}
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-50 text-indigo-700 font-bold text-[10px] sm:text-xs uppercase">
+                              {order.seller?.full_name?.slice(0, 2) || <User className="h-3 w-3 sm:h-4 sm:w-4" />}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-xs text-muted-foreground font-medium leading-none">Seller</p>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{order.seller?.full_name || 'Seller'}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium leading-none">Seller</p>
+                            <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200">{order.seller?.full_name || 'Seller'}</p>
                           </div>
                         </div>
 
                         {/* Card Toggle buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5 sm:gap-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => toggleOrderExpansion(order.id)} 
-                            className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 h-8 px-2.5"
+                            className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 flex items-center gap-0.5 sm:gap-1 h-7 sm:h-8 px-2 sm:px-2.5"
                           >
                             {isExpanded ? (
                               <>
-                                Hide Info <ChevronUp className="h-4 w-4" />
+                                Hide Info <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
                               </>
                             ) : (
                               <>
-                                View Info <ChevronDown className="h-4 w-4" />
+                                View Info <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                               </>
                             )}
                           </Button>
@@ -589,14 +667,14 @@ export default function TransactionsPage() {
 
                   {/* Slide down expandable details info */}
                   {isExpanded && (
-                    <div className="px-5 pb-5 pt-2 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top duration-200">
+                    <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5 pt-1 sm:pt-2 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 animate-in slide-in-from-top duration-200">
                       {/* Timeline */}
-                      <div className="md:col-span-2 space-y-3">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                          <Truck className="h-4 w-4" />
+                      <div className="md:col-span-2 space-y-2 sm:space-y-3">
+                        <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                          <Truck className="h-3 w-3 sm:h-4 sm:w-4" />
                           Delivery Progress
                         </h4>
-                        <div className="p-4 bg-white dark:bg-slate-950 rounded-xl border shadow-sm">
+                        <div className="p-2 sm:p-3 md:p-4 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border shadow-sm">
                           <OrderTimeline 
                             status={order.status} 
                             buyType={listing?.buy_type || 'buy_now'} 
@@ -605,13 +683,13 @@ export default function TransactionsPage() {
                       </div>
 
                       {/* Shipping & Payment Details */}
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4" />
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                             Shipping Details
                           </h4>
-                          <div className="p-3 bg-white dark:bg-slate-950 rounded-xl border text-xs text-slate-700 dark:text-slate-350 space-y-1">
+                          <div className="p-2 sm:p-3 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs text-slate-700 dark:text-slate-350 space-y-1">
                             {order.shipping_address ? (
                               <p className="whitespace-pre-line font-medium">{order.shipping_address}</p>
                             ) : (
@@ -620,12 +698,12 @@ export default function TransactionsPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <CreditCard className="h-4 w-4" />
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                            <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
                             Payment Method
                           </h4>
-                          <div className="p-3 bg-white dark:bg-slate-950 rounded-xl border text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                          <div className="p-2 sm:p-3 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">
                             {order.payment_method || 'GCash Payment'}
                           </div>
                         </div>
@@ -634,30 +712,30 @@ export default function TransactionsPage() {
                   )}
 
                   {/* Actions Footer */}
-                  <div className="px-4 py-3 sm:px-5 border-t flex flex-wrap gap-2 justify-end bg-slate-50/20">
-                    <Button variant="outline" size="sm" asChild className="text-xs font-semibold rounded-lg h-9">
+                  <div className="px-2 sm:px-3 md:px-4 lg:px-5 py-2 sm:py-3 border-t flex flex-wrap gap-1.5 sm:gap-2 justify-end bg-slate-50/20">
+                    <Button variant="outline" size="sm" asChild className="text-[10px] sm:text-xs font-semibold rounded-lg h-8 sm:h-9">
                       <Link href={`/products/${listing?.id}`}>
-                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                        <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                         Product Page
                       </Link>
                     </Button>
-                    <Button variant="outline" size="sm" asChild className="text-xs font-semibold rounded-lg h-9">
-                      <Link href={`/user/messages?seller=${order.seller_id}`}>
-                        <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
+                    <Button variant="outline" size="sm" asChild className="text-[10px] sm:text-xs font-semibold rounded-lg h-8 sm:h-9">
+                      <Link href={`/user/messages?seller=${order.seller_id}&listing=${listing?.id}`}>
+                        <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-indigo-500" />
                         Chat Seller
                       </Link>
                     </Button>
                     {order.status === 'delivered' && !hasReviewed && (
-                      <Button variant="default" size="sm" asChild className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9">
+                      <Button variant="default" size="sm" asChild className="text-[10px] sm:text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-8 sm:h-9">
                         <Link href={`/user/review/${order.id}`}>
-                          <Star className="h-3.5 w-3.5 mr-1.5 text-yellow-400 fill-yellow-400" />
+                          <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-yellow-400 fill-yellow-400" />
                           Rate Product
                         </Link>
                       </Button>
                     )}
                     {order.status === 'delivered' && hasReviewed && (
-                      <Button variant="outline" size="sm" disabled className="text-xs font-semibold rounded-lg h-9 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900 border-emerald-200">
-                        <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <Button variant="outline" size="sm" disabled className="text-[10px] sm:text-xs font-semibold rounded-lg h-8 sm:h-9 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-900 border-emerald-200">
+                        <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                         Reviewed
                       </Button>
                     )}
@@ -669,21 +747,21 @@ export default function TransactionsPage() {
         </TabsContent>
 
         {/* Tab 2: Sales Content */}
-        <TabsContent value="sales" className="space-y-4 outline-none">
+        <TabsContent value="sales" className="space-y-3 sm:space-y-4 outline-none">
           {filteredSales.length === 0 ? (
-            <Card className="border border-dashed border-slate-300 dark:border-slate-800 py-16">
+            <Card className="border border-dashed border-slate-300 dark:border-slate-800 py-8 sm:py-12 md:py-16 rounded-lg sm:rounded-xl">
               <CardContent className="flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center mb-4 text-muted-foreground">
-                  <DollarSign className="h-8 w-8" />
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-slate-100 dark:bg-slate-950 flex items-center justify-center mb-3 sm:mb-4 text-muted-foreground">
+                  <DollarSign className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">No sales found</h3>
-                <p className="text-muted-foreground max-w-sm text-center mt-1">
+                <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-800 dark:text-slate-100">No sales found</h3>
+                <p className="text-muted-foreground max-w-sm text-center mt-1 text-[11px] sm:text-xs md:text-sm">
                   {searchTerm || statusFilter !== 'all' 
                     ? "We couldn't find any sales transactions matching your search." 
                     : "You haven't listed or sold anything yet. Put your first product on SuriMart!"}
                 </p>
                 {!searchTerm && statusFilter === 'all' && (
-                  <Button asChild className="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md px-6">
+                  <Button asChild className="mt-4 sm:mt-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg sm:rounded-xl shadow-md px-4 sm:px-6 text-[11px] sm:text-xs md:text-sm">
                     <Link href="/user/products/create">List a Product</Link>
                   </Button>
                 )}
@@ -698,14 +776,14 @@ export default function TransactionsPage() {
               return (
                 <Card 
                   key={sale.id} 
-                  className="overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow duration-200 bg-white dark:bg-slate-950"
+                  className="overflow-hidden border border-slate-200 dark:border-slate-800 hover:shadow-md transition-shadow duration-200 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl"
                 >
                   {/* Card Header Section */}
-                  <div className="p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/20">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground">ORDER ID</span>
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-850 px-2 py-0.5 rounded text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
+                  <div className="p-2 sm:p-3 md:p-4 lg:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 bg-slate-50/50 dark:bg-slate-900/20">
+                    <div className="space-y-0.5 sm:space-y-1">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-[10px] sm:text-xs font-semibold text-muted-foreground">ORDER ID</span>
+                        <div className="flex items-center gap-0.5 sm:gap-1 bg-slate-100 dark:bg-slate-850 px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-mono font-bold text-slate-700 dark:text-slate-300">
                           <span>{sale.id.slice(0, 8).toUpperCase()}</span>
                           <button 
                             onClick={() => copyToClipboard(sale.id)} 
@@ -713,15 +791,15 @@ export default function TransactionsPage() {
                             title="Copy full order ID"
                           >
                             {copiedId === sale.id ? (
-                              <Check className="h-3 w-3 text-emerald-500" />
+                              <Check className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-emerald-500" />
                             ) : (
-                              <Copy className="h-3 w-3" />
+                              <Copy className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                             )}
                           </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3.5 w-3.5" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         <span>Ordered on {new Date(sale.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -731,9 +809,9 @@ export default function TransactionsPage() {
                   </div>
 
                   {/* Card Body Section */}
-                  <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
+                  <div className="p-2 sm:p-3 md:p-4 lg:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-5">
                     {/* Item Image */}
-                    <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border flex-shrink-0 group">
+                    <div className="relative w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-lg sm:rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border flex-shrink-0 group">
                       <img
                         src={image}
                         alt={listing?.title}
@@ -743,45 +821,45 @@ export default function TransactionsPage() {
 
                     {/* Item Details */}
                     <div className="flex-1 flex flex-col justify-between">
-                      <div className="space-y-1">
-                        <h3 className="font-bold text-lg text-slate-950 dark:text-white line-clamp-1 hover:underline">
+                      <div className="space-y-0.5 sm:space-y-1">
+                        <h3 className="font-bold text-sm sm:text-base md:text-lg text-slate-950 dark:text-white line-clamp-1 hover:underline">
                           <Link href={`/products/${listing?.id}`}>{listing?.title}</Link>
                         </h3>
-                        <p className="text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
+                        <p className="text-base sm:text-lg md:text-xl font-extrabold text-indigo-600 dark:text-indigo-400">
                           {formatPrice(sale.total_amount || listing?.price, 'PHP')}
                         </p>
                       </div>
 
                       {/* Counterparty / Buyer details */}
-                      <div className="flex items-center justify-between gap-4 mt-3 pt-3 border-t border-slate-100 dark:border-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar className="h-8 w-8 border border-indigo-100">
+                      <div className="flex items-center justify-between gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-100 dark:border-slate-900">
+                        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5">
+                          <Avatar className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 border border-indigo-100">
                             <AvatarImage src={sale.buyer?.avatar_url || ''} />
-                            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-50 text-indigo-700 font-bold text-xs uppercase">
-                              {sale.buyer?.full_name?.slice(0, 2) || <User className="h-4 w-4" />}
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-100 to-blue-50 text-indigo-700 font-bold text-[10px] sm:text-xs uppercase">
+                              {sale.buyer?.full_name?.slice(0, 2) || <User className="h-3 w-3 sm:h-4 sm:w-4" />}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-xs text-muted-foreground font-medium leading-none">Buyer</p>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{sale.buyer?.full_name || 'Buyer'}</p>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground font-medium leading-none">Buyer</p>
+                            <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-slate-800 dark:text-slate-200">{sale.buyer?.full_name || 'Buyer'}</p>
                           </div>
                         </div>
 
                         {/* Card Toggle buttons */}
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5 sm:gap-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             onClick={() => toggleOrderExpansion(sale.id)} 
-                            className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1 h-8 px-2.5"
+                            className="text-[10px] sm:text-xs text-slate-600 dark:text-slate-400 flex items-center gap-0.5 sm:gap-1 h-7 sm:h-8 px-2 sm:px-2.5"
                           >
                             {isExpanded ? (
                               <>
-                                Hide Info <ChevronUp className="h-4 w-4" />
+                                Hide Info <ChevronUp className="h-3 w-3 sm:h-4 sm:w-4" />
                               </>
                             ) : (
                               <>
-                                View Info <ChevronDown className="h-4 w-4" />
+                                View Info <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
                               </>
                             )}
                           </Button>
@@ -792,14 +870,14 @@ export default function TransactionsPage() {
 
                   {/* Slide down expandable details info */}
                   {isExpanded && (
-                    <div className="px-5 pb-5 pt-2 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top duration-200">
+                    <div className="px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 md:pb-5 pt-1 sm:pt-2 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10 grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6 animate-in slide-in-from-top duration-200">
                       {/* Timeline */}
-                      <div className="md:col-span-2 space-y-3">
-                        <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                          <Truck className="h-4 w-4" />
+                      <div className="md:col-span-2 space-y-2 sm:space-y-3">
+                        <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                          <Truck className="h-3 w-3 sm:h-4 sm:w-4" />
                           Delivery Progress
                         </h4>
-                        <div className="p-4 bg-white dark:bg-slate-950 rounded-xl border shadow-sm">
+                        <div className="p-2 sm:p-3 md:p-4 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border shadow-sm">
                           <OrderTimeline 
                             status={sale.status} 
                             buyType={listing?.buy_type || 'buy_now'} 
@@ -808,13 +886,13 @@ export default function TransactionsPage() {
                       </div>
 
                       {/* Shipping & Payment Details */}
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <MapPin className="h-4 w-4" />
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                            <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                             Buyer Shipping Address
                           </h4>
-                          <div className="p-3 bg-white dark:bg-slate-950 rounded-xl border text-xs text-slate-700 dark:text-slate-350 space-y-1">
+                          <div className="p-2 sm:p-3 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs text-slate-700 dark:text-slate-350 space-y-1">
                             {sale.shipping_address ? (
                               <p className="whitespace-pre-line font-medium">{sale.shipping_address}</p>
                             ) : (
@@ -823,12 +901,12 @@ export default function TransactionsPage() {
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            <CreditCard className="h-4 w-4" />
+                        <div className="space-y-1.5 sm:space-y-2">
+                          <h4 className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 sm:gap-1.5">
+                            <CreditCard className="h-3 w-3 sm:h-4 sm:w-4" />
                             Payment Method
                           </h4>
-                          <div className="p-3 bg-white dark:bg-slate-950 rounded-xl border text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">
+                          <div className="p-2 sm:p-3 bg-white dark:bg-slate-950 rounded-lg sm:rounded-xl border text-[10px] sm:text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">
                             {sale.payment_method || 'GCash Payment'}
                           </div>
                         </div>
@@ -837,10 +915,10 @@ export default function TransactionsPage() {
                   )}
 
                   {/* Actions Footer */}
-                  <div className="px-4 py-3 sm:px-5 border-t flex flex-wrap gap-2 justify-end bg-slate-50/20">
-                    <Button variant="outline" size="sm" asChild className="text-xs font-semibold rounded-lg h-9">
-                      <Link href={`/user/messages?seller=${sale.buyer_id}`}>
-                        <MessageSquare className="h-3.5 w-3.5 mr-1.5 text-indigo-500" />
+                  <div className="px-2 sm:px-3 md:px-4 lg:px-5 py-2 sm:py-3 border-t flex flex-wrap gap-1.5 sm:gap-2 justify-end bg-slate-50/20">
+                    <Button variant="outline" size="sm" asChild className="text-[10px] sm:text-xs font-semibold rounded-lg h-8 sm:h-9">
+                      <Link href={`/user/messages?seller=${sale.buyer_id}&listing=${listing?.id}`}>
+                        <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5 text-indigo-500" />
                         Chat Buyer
                       </Link>
                     </Button>
@@ -852,7 +930,7 @@ export default function TransactionsPage() {
                           variant="destructive" 
                           size="sm" 
                           onClick={() => handleUpdateOrderStatus(sale.id, 'cancelled')}
-                          className="text-xs font-semibold rounded-lg h-9"
+                          className="text-[10px] sm:text-xs font-semibold rounded-lg h-8 sm:h-9"
                         >
                           Cancel Order
                         </Button>
@@ -860,7 +938,7 @@ export default function TransactionsPage() {
                           variant="default" 
                           size="sm" 
                           onClick={() => handleUpdateOrderStatus(sale.id, 'processing')}
-                          className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9"
+                          className="text-[10px] sm:text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-8 sm:h-9"
                         >
                           Accept Order
                         </Button>
@@ -871,9 +949,9 @@ export default function TransactionsPage() {
                         variant="default" 
                         size="sm" 
                         onClick={() => handleUpdateOrderStatus(sale.id, 'shipped')}
-                        className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9"
+                        className="text-[10px] sm:text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-8 sm:h-9"
                       >
-                        <Truck className="h-3.5 w-3.5 mr-1.5" />
+                        <Truck className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                         Mark as Shipped
                       </Button>
                     )}
@@ -882,9 +960,9 @@ export default function TransactionsPage() {
                         variant="default" 
                         size="sm" 
                         onClick={() => handleUpdateOrderStatus(sale.id, 'delivered')}
-                        className="text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-9"
+                        className="text-[10px] sm:text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg h-8 sm:h-9"
                       >
-                        <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                        <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mr-1 sm:mr-1.5" />
                         Mark as Delivered
                       </Button>
                     )}
