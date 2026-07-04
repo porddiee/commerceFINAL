@@ -65,7 +65,7 @@ export default function AdminUsersPage() {
   const toggleVerification = async (userId: string, currentStatus: boolean) => {
     try {
       // If verifying, we also update verification_status to 'approved', otherwise back to 'none'
-      const updates: { is_verified_seller: boolean; verification_status?: string } = { is_verified_seller: !currentStatus }
+      const updates: { is_verified_seller: boolean; verification_status?: 'none' | 'pending' | 'approved' | 'rejected' } = { is_verified_seller: !currentStatus }
       if (!currentStatus) {
         updates.verification_status = 'approved'
       } else {
@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
     return [
       { key: 'full_name', label: 'Full Name', value: user.full_name, icon: User },
       { key: 'email', label: 'Email', value: user.email, icon: Mail },
-      { key: 'phone', label: 'Phone Number', value: user.phone_verified ? user.phone : null, icon: Phone, subtitle: user.phone_verified ? 'Verified Phone' : (user.phone ? 'Phone Unverified' : 'Not provided') },
+      { key: 'phone', label: 'Phone Number', value: user.phone, icon: Phone, subtitle: user.phone ? 'Phone provided' : 'Not provided' },
       { key: 'location', label: 'Location', value: user.location, icon: MapPin },
       { key: 'verification_document', label: 'ID/Verification Document', value: user.verification_document, icon: FileText },
     ]
@@ -138,7 +138,7 @@ export default function AdminUsersPage() {
   }, [users, searchQuery, roleFilter, statusFilter])
 
   // Avatar generator helper
-  const getAvatarInitials = (name: string, email: string) => {
+  const getAvatarInitials = (name: string | null, email: string) => {
     if (name) {
       const parts = name.split(' ')
       if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase()

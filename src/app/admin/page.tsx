@@ -165,9 +165,9 @@ export default function AdminDashboardPage() {
         }
       })
 
-      const breakdown = allCategories.map((cat: { id: string; name: string }) => {
+      const breakdown = cats.map((cat: { id: string; name: string }) => {
         const count = catCounts[cat.id] || 0
-        const total = allListings.length || 1
+        const total = listingsData.length || 1
         return {
           name: cat.name,
           count,

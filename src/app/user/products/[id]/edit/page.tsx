@@ -12,6 +12,7 @@ import { toast } from '@/hooks/use-toast'
 import { ShoppingBag, Upload, X, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { categoriesService, listingsService } from '@/services'
+import type { Condition } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 
 export default function EditProductPage() {
@@ -137,7 +138,7 @@ export default function EditProductPage() {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        condition: formData.condition,
+        condition: formData.condition as Condition,
         location: formData.location,
         images: allImages,
       })

@@ -21,7 +21,7 @@ const CONDITION_LABELS: Record<string, { label: string; cls: string }> = {
   fair:     { label: 'Fair',     cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' },
 }
 
-function ListingCard({ listing }: { listing: { condition: string; images?: string[]; title: string; price: number; id: string } }) {
+function ListingCard({ listing }: { listing: { condition: string; images?: string[]; title: string; price: number; id: string; buy_type?: string; location?: string } }) {
   const cond = CONDITION_LABELS[listing.condition] ?? { label: listing.condition, cls: 'bg-muted text-muted-foreground' }
   const mainImage = listing.images?.[0]
 

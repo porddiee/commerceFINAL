@@ -97,7 +97,7 @@ export default function SavedListingsPage() {
       const savedMap = new Map()
       const listingIds: string[] = []
       
-      data.forEach((item: { listing_id: string; notify_on_price_drop: boolean }) => {
+      data.forEach((item: any) => {
         savedMap.set(item.listing_id, { notify_on_price_drop: item.notify_on_price_drop })
         listingIds.push(item.listing_id)
       })

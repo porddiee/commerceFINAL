@@ -293,7 +293,7 @@ export default function MessagesPage() {
     }
   }
 
-  const startEditing = (message: Message) => {
+  const startEditing = (message: any) => {
     setEditingMessage(message)
     setEditContent(message.content)
   }

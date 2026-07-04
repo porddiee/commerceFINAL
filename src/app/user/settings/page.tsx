@@ -66,7 +66,7 @@ function SettingRow({
 /* ─────────────────────── Section card ─────────────────────── */
 function SectionCard({
   icon: Icon, title, description, children, accent = 'indigo',
-}: { icon?: LucideIcon; title: string; description: string; children: React.ReactNode; accent?: string }) {
+}: { icon: LucideIcon; title: string; description: string; children: React.ReactNode; accent?: string }) {
   const accentMap: Record<string, string> = {
     indigo: 'from-indigo-500 to-blue-600',
     emerald: 'from-emerald-500 to-teal-600',
@@ -173,7 +173,7 @@ export default function SettingsPage() {
       })
       // Check email verification from auth
       authService.getUser().then((data) => {
-        setEmailVerified(data.user?.email_confirmed_at != null)
+        setEmailVerified(data?.email_confirmed_at != null)
       })
     }
   }, [setLanguage, user])
@@ -222,7 +222,7 @@ export default function SettingsPage() {
 
     setLoading(true)
     try {
-      await authService.updatePassword(passwordData.newPassword)
+      await authService.updatePassword({ newPassword: passwordData.newPassword })
       toast({ title: 'Success', description: 'Password updated successfully!' })
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (error) {
@@ -355,7 +355,7 @@ export default function SettingsPage() {
     if (!user) return
     setEmailVerificationLoading(true)
     try {
-      await authService.resendConfirmationEmail(user.email!)
+      await authService.resendVerificationEmail(user.email!)
       toast({ title: 'Success', description: 'Verification email sent! Please check your inbox and click the confirmation link.' })
     } catch (error) {
       console.error('Error sending email verification:', error)
@@ -385,7 +385,7 @@ export default function SettingsPage() {
     }
     setEmailVerificationLoading(true)
     try {
-      await authService.updateEmail(newEmail)
+      await authService.updateEmail({ newEmail })
       setEmailNotification({ type: 'success', message: 'Email change request sent! Please check your current email for confirmation.' })
       setEditingEmail(false)
       setNewEmail('')

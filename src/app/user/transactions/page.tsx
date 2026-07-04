@@ -111,7 +111,7 @@ export default function TransactionsPage() {
           .eq('reviewer_id', user.id)
           .in('listing_id', deliveredListingIds)
         
-        const reviewedSet = new Set(reviews?.map((r: { listing_id?: string }) => r.listing_id) || [])
+        const reviewedSet = new Set(reviews?.map((r: { listing_id?: string }) => r.listing_id).filter((id): id is string => !!id) || [])
         setReviewedListings(reviewedSet)
       }
     } catch (error) {
@@ -311,7 +311,7 @@ export default function TransactionsPage() {
   const salesStats = getStats(sales, 'sales')
 
   // --- Filtering Logic ---
-  const filterList = (list: { status: string; listing_id?: string; total_amount?: number; created_at?: string }[]) => {
+  const filterList = (list: any[]) => {
     return list.filter(item => {
       // 1. Search term match (Listing title or Order ID)
       const matchesSearch = 

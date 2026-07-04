@@ -206,6 +206,20 @@ export default function ManageProductsPage() {
     }
   }
 
+  const handleBump = async (id: string) => {
+    try {
+      const now = new Date().toISOString()
+      const { error } = await supabase
+        .from('listings')
+        .update({ created_at: now })
+        .eq('id', id)
+      if (error) throw error
+      fetchProducts()
+    } catch (error) {
+      console.error('Error bumping product:', error)
+    }
+  }
+
   const [showVerificationAlert, setShowVerificationAlert] = useState(false)
 
   const handleAddProduct = () => {
@@ -247,7 +261,7 @@ export default function ManageProductsPage() {
   const totalViews = products.reduce((acc, p) => acc + (p.views || 0), 0)
 
   // --- Filter and Search Logic ---
-  const filterList = (list: { title?: string; status?: string; condition?: string; views?: number }[]) => {
+  const filterList = (list: any[]) => {
     return list.filter(item => {
       const matchesSearch = 
         (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -8,14 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tag, Plus, Edit, Trash2 } from 'lucide-react'
 import { categoriesService } from '@/services'
-
-interface Category {
-  id: string
-  name: string
-  slug: string
-  description?: string
-  created_at: string
-}
+import type { Category } from '@/types'
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])

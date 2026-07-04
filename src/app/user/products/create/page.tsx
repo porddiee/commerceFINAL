@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/store/auth'
 import { listingsService, categoriesService } from '@/services'
+import type { Condition } from '@/types'
 import { toast } from '@/hooks/use-toast'
 import {
   ShoppingBag, Upload, X, ArrowLeft, AlertCircle,
@@ -83,7 +84,7 @@ export default function CreateProductPage() {
   const fetchPriceSuggestion = async () => {
     if (!formData.category_id || !formData.condition) return
     try {
-      const suggestion = await listingsService.getPriceSuggestion(formData.category_id, formData.condition)
+      const suggestion = await listingsService.getPriceSuggestion(formData.category_id, formData.condition as Condition)
       setPriceSuggestion(suggestion)
     } catch (e) { console.error(e) }
   }
@@ -147,7 +148,7 @@ export default function CreateProductPage() {
         title: formData.title,
         description: formData.description,
         price: parseFloat(formData.price),
-        condition: formData.condition,
+        condition: formData.condition as Condition,
         location: formData.location,
         images: uploadedUrls,
         quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,

@@ -293,7 +293,7 @@ export default function ListingTemplatesPage() {
               <CardHeader>
                 <CardTitle className="text-lg">{template.name}</CardTitle>
                 <CardDescription>
-                  {template.categories?.name || 'No category'} • {template.condition || 'No condition'}
+                  {categories.find(c => c.id === template.category_id)?.name || 'No category'} • {template.condition || 'No condition'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
