@@ -170,10 +170,14 @@ export default function SettingsPage() {
       profilesService.getPhoneVerificationStatus(user.id).then((data) => {
         setPhone(data.phone || '')
         setPhoneVerified(data.phone_verified || false)
+      }).catch((error) => {
+        console.error('Error loading phone verification status:', error)
       })
       // Check email verification from auth
       authService.getUser().then((data) => {
         setEmailVerified(data?.email_confirmed_at != null)
+      }).catch((error) => {
+        console.error('Error loading user data:', error)
       })
     }
   }, [setLanguage, user])

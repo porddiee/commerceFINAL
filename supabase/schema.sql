@@ -14,6 +14,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     verification_status TEXT DEFAULT 'none' CHECK (verification_status IN ('none', 'pending', 'approved', 'rejected')),
     verification_rejection_reason TEXT,
     phone TEXT,
+    phone_verified BOOLEAN DEFAULT FALSE,
+    phone_verification_code TEXT,
+    phone_verification_expires TIMESTAMP WITH TIME ZONE,
     location TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL

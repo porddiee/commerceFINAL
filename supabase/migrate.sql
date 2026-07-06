@@ -9,6 +9,14 @@ ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS bio TEXT;
 
 -- ============================================
+-- Add phone verification columns to profiles table
+-- ============================================
+ALTER TABLE public.profiles
+ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS phone_verification_code TEXT,
+ADD COLUMN IF NOT EXISTS phone_verification_expires TIMESTAMP WITH TIME ZONE;
+
+-- ============================================
 -- 1. Add message columns for read receipts and soft delete
 -- ============================================
 ALTER TABLE public.messages

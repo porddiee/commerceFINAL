@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Eye, Star, Package, ShoppingCart, MapPin, Calendar, ShoppingBag } from 'lucide-react'
+import { Eye, Star, ShoppingCart, ShoppingBag } from 'lucide-react'
 import { formatPrice, formatRelativeTime } from '@/lib/utils'
 
 interface ListingCardProps {
@@ -57,7 +57,7 @@ export default function ListingCard({
   return (
     <div className="relative group h-full">
       <Link href={`/products/${id}`} className="block h-full">
-        <Card className={`hover:shadow-lg hover:shadow-indigo-500/5 hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden h-full flex flex-col border border-slate-200 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-800 rounded-xl sm:rounded-2xl bg-white dark:bg-slate-950 ${className || ''}`}>
+        <Card className={`hover:shadow-xl hover:shadow-indigo-500/20 hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden h-full flex flex-col border-2 border-indigo-300 dark:border-indigo-600 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-xl sm:rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-blue-50 dark:from-indigo-950 dark:via-slate-900 dark:to-blue-950 ${className || ''}`}>
           
           {/* Card Header (Image Container) */}
           <CardHeader className="p-2 sm:p-3 pb-0 relative">
@@ -143,47 +143,31 @@ export default function ListingCard({
           </CardHeader>
 
           {/* Card Content (Product Metadata) */}
-          <CardContent className="p-2 pt-1.5 sm:p-3 sm:pt-2 flex-1 space-y-1 sm:space-y-2 border-t border-slate-100 dark:border-slate-900 mt-1 sm:mt-2">
-            {/* Location */}
-            <div className="flex items-center gap-1 sm:gap-1.5 text-[9px] sm:text-xs text-slate-500 dark:text-slate-400">
-              <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0 text-slate-400" />
-              <span className="truncate">{location}</span>
-            </div>
-
-            {/* Availability & Rating */}
+          <CardContent className="p-2 pt-1.5 sm:p-3 sm:pt-2 flex-1 space-y-1 sm:space-y-1.5 border-t border-indigo-100 dark:border-indigo-800/50 mt-1 sm:mt-2 bg-gradient-to-b from-indigo-50/40 to-indigo-100/50 dark:from-indigo-950/30 dark:to-indigo-900/40">
+            {/* Views and Ratings Row */}
             <div className="flex items-center justify-between text-[9px] sm:text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <Package className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-indigo-500/80" />
-                <span className="font-medium text-[9px] sm:text-[11px]">{quantity} available</span>
+              <div className="flex items-center gap-1">
+                <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500/70" />
+                <span>{views} views</span>
               </div>
-              <div className="flex items-center gap-0.5 sm:gap-1">
+              <div className="flex items-center gap-0.5">
                 <Star className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 fill-amber-500" />
-                <span className="font-semibold text-slate-700 dark:text-slate-300 text-[9px] sm:text-[11px]">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
                   {avgRating.toFixed(1)}
                 </span>
                 <span className="text-[8px] sm:text-[10px] text-slate-400">({reviewCount})</span>
               </div>
             </div>
 
-            {/* Views, Sold Count, Time Ago */}
-            <div className="flex items-center justify-between text-[8px] sm:text-[11px] text-slate-450 dark:text-slate-400 pt-1 sm:pt-1.5 border-t border-dashed border-slate-100 dark:border-slate-900">
-              <div className="flex items-center gap-1">
-                <Eye className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-500/70" />
-                <span>{views}</span>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <span className="font-semibold text-slate-700 dark:text-slate-350">{purchaseCount}</span>
-                <span>sold</span>
-              </div>
-              <div className="flex items-center gap-0.5">
-                <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-slate-400" />
-                <span className="truncate max-w-[40px] sm:max-w-none">{formatRelativeTime(createdAt)}</span>
-              </div>
+            {/* Sold Count */}
+            <div className="flex items-center gap-1 text-[9px] sm:text-xs text-slate-500 dark:text-slate-400">
+              <ShoppingBag className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-indigo-500/80" />
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{purchaseCount} sold</span>
             </div>
           </CardContent>
 
           {/* Card Footer (Seller Info) */}
-          <CardFooter className="p-2 pt-0 sm:p-3 sm:pt-0 border-t border-slate-100 dark:border-slate-900 bg-slate-50/30 dark:bg-slate-900/10">
+          <CardFooter className="p-2 pt-0 sm:p-3 sm:pt-0 border-t border-indigo-100 dark:border-indigo-800/50 bg-indigo-100/60 dark:bg-indigo-900/50">
             <div className="flex items-center gap-1 sm:gap-2 w-full mt-1.5 sm:mt-2.5">
               <Avatar className="h-5 w-5 sm:h-6 sm:w-6 ring-2 ring-indigo-500/10">
                 <AvatarImage src={sellerAvatar} alt={sellerName} />

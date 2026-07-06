@@ -270,7 +270,7 @@ export default function BrowsePage() {
     if (currentPage === 0) setLoading(true)
     try {
       const filters: Record<string, string | number> = {}
-      
+
       if (debouncedQuery) {
         filters.search = debouncedQuery
       }
@@ -320,19 +320,35 @@ export default function BrowsePage() {
       }
 
       const { data, count } = await listingsService.getListings(filters, sortOptions, currentPage + 1, 16)
-      
+
       // Apply date filter locally if needed
       let filteredData = data
       if (dateFilter) {
         filteredData = data.filter((listing: { created_at: string }) => new Date(listing.created_at) >= dateFilter)
       }
 
+      // Fetch seller profiles for each listing
+      const supabase = createClient()
+      const sellerIds = [...new Set(filteredData.map((l: any) => l.seller_id))]
+      const { data: sellerProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', sellerIds)
+
+      const sellerMap = new Map(sellerProfiles?.map((p: any) => [p.id, p]) || [])
+
+      // Attach seller info to listings
+      const listingsWithSellers = filteredData.map((listing: any) => ({
+        ...listing,
+        profiles: sellerMap.get(listing.seller_id) || null
+      }))
+
       if (currentPage === 0) {
-        setListings(filteredData)
+        setListings(listingsWithSellers)
       } else {
-        setListings((prev) => [...prev, ...filteredData])
+        setListings((prev) => [...prev, ...listingsWithSellers])
       }
-      
+
       setHasMore((currentPage + 1) * 16 < (count || 0))
     } catch (error) {
       console.error('Error fetching listings:', error)
