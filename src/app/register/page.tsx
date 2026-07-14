@@ -121,6 +121,20 @@ export default function RegisterPage() {
         
         if (result.url) {
           await Browser.open({ url: result.url })
+          
+          // Listen for browser close and check auth state
+          Browser.addListener('browserFinished', async () => {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user) {
+              setUser(session.user)
+              const profile = await profilesService.getProfileById(session.user.id)
+              if (profile) {
+                setProfile(profile)
+                router.push(profile.role === 'admin' ? '/admin' : '/user')
+              }
+            }
+            setLoading(false)
+          })
         }
       } else {
         // Regular web flow
