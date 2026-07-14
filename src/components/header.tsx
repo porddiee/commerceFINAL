@@ -19,6 +19,7 @@ import { createClient } from '@/lib/supabase/client'
 import { notificationsService, savedListingsService } from '@/services'
 import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { Capacitor } from '@capacitor/core'
 
 export function Header() {
   const router = useRouter()
@@ -27,6 +28,7 @@ export function Header() {
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const isCapacitor = Capacitor.isNativePlatform()
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
@@ -349,12 +351,16 @@ export function Header() {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
-                <Link href="/about">About</Link>
-              </Button>
-              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
-                <Link href="/contact">Contact</Link>
-              </Button>
+              {!isCapacitor && (
+                <>
+                  <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
+                    <Link href="/about">About</Link>
+                  </Button>
+                  <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
+                    <Link href="/contact">Contact</Link>
+                  </Button>
+                </>
+              )}
               <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                 <Link href="/login">Log in</Link>
               </Button>
