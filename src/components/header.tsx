@@ -19,7 +19,14 @@ import { createClient } from '@/lib/supabase/client'
 import { notificationsService, savedListingsService } from '@/services'
 import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
-import { Capacitor } from '@capacitor/core'
+
+// Dynamically import Capacitor to avoid build issues on web
+let Capacitor: any = null
+try {
+  Capacitor = require('@capacitor/core')
+} catch (e) {
+  // Capacitor not available (web build)
+}
 
 export function Header() {
   const router = useRouter()
@@ -28,7 +35,7 @@ export function Header() {
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
-  const isCapacitor = Capacitor.isNativePlatform()
+  const isCapacitor = Capacitor?.isNativePlatform() || false
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
