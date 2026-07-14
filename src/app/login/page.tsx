@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/store/auth'
 import { authService, profilesService } from '@/services'
 import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, ArrowRight, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
+import { Browser } from '@capacitor/browser'
 
 const FEATURES = [
   { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
@@ -74,16 +75,26 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      // Use custom deep link for mobile app, web URL for browser
+      // Use Capacitor Browser for OAuth in mobile app
       const isMobileApp = window.location.pathname === '/app' || window.location.pathname === '/login'
-      const redirectTo = isMobileApp 
-        ? 'surimart://auth/callback'
-        : `${window.location.origin}/auth/callback`
       
-      const data = await authService.signInWithOAuth('google', {
-        redirectTo,
-      })
-      if (data.url) window.location.href = data.url
+      if (isMobileApp) {
+        // Open OAuth in in-app browser for mobile
+        const { data } = await authService.signInWithOAuth('google', {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          skipBrowserRedirect: true,
+        })
+        
+        if (data.url) {
+          await Browser.open({ url: data.url })
+        }
+      } else {
+        // Regular web flow
+        const data = await authService.signInWithOAuth('google', {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        })
+        if (data.url) window.location.href = data.url
+      }
     } catch (error: unknown) {
       const errorMessage = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message
