@@ -37,6 +37,11 @@ export function Header() {
   const [showNotifications, setShowNotifications] = useState(false)
   const isCapacitor = Capacitor?.isNativePlatform() || false
 
+  // Hide header completely in mobile app when not logged in
+  if (isCapacitor && !user) {
+    return null
+  }
+
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
   const fetchNotifications = async () => {

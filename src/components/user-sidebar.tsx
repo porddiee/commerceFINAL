@@ -23,6 +23,14 @@ import { createClient } from '@/lib/supabase/client'
 import { messagesService } from '@/services'
 import type { LucideIcon } from 'lucide-react'
 
+// Dynamically import Capacitor to avoid build issues on web
+let Capacitor: any = null
+try {
+  Capacitor = require('@capacitor/core')
+} catch (e) {
+  // Capacitor not available (web build)
+}
+
 interface NavItem {
   title: string
   href: string
@@ -49,6 +57,12 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
   const [isMobile, setIsMobile] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const isCapacitor = Capacitor?.isNativePlatform() || false
+
+  // Hide sidebar completely in mobile app when not logged in
+  if (isCapacitor && !user) {
+    return null
+  }
 
   useEffect(() => {
     const checkMobile = () => {
