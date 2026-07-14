@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import type { Notification } from '@/types'
 import {
@@ -20,25 +20,18 @@ import { notificationsService, savedListingsService } from '@/services'
 import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
-// Dynamically import Capacitor to avoid build issues on web
-let Capacitor: any = null
-try {
-  Capacitor = require('@capacitor/core')
-} catch (e) {
-  // Capacitor not available (web build)
-}
-
 export function Header() {
   const router = useRouter()
+  const pathname = usePathname()
   const { user, profile, signOut } = useAuthStore()
   const { cartCount, setCartCount } = useCartStore()
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
-  const isCapacitor = Capacitor?.isNativePlatform() || false
 
-  // Hide header completely in mobile app when not logged in
-  if (isCapacitor && !user) {
+  // Hide header on mobile app routes (/app, /login, /register) when not logged in
+  const isMobileAppRoute = pathname === '/app' || pathname === '/login' || pathname === '/register'
+  if (isMobileAppRoute && !user) {
     return null
   }
 
