@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Search, ShoppingBag, Users, Shield, TrendingUp, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint, MessageSquare, Eye, ArrowUpRight, Flame, Zap, X } from 'lucide-react'
+import { Search, ShoppingBag, Users, Shield, TrendingUp, MapPin, Handshake, ChevronDown, ShoppingCart, Package, Store, Truck, CreditCard, Gift, Laptop, Shirt, Home, Car, Trophy, Book, ArrowUp, Baby, Briefcase, Utensils, Heart, MoreHorizontal, PawPrint, MessageSquare, Eye, ArrowUpRight, Flame, Zap, X, Download } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/auth'
 import { listingsService, profilesService } from '@/services'
 import { createClient } from '@/lib/supabase/client'
@@ -1075,6 +1075,17 @@ export default function HomePage() {
                       <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                       Start Selling
                     </Link>
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    asChild
+                    className="bg-green-600/20 backdrop-blur-md border-green-400/30 text-green-100 hover:bg-green-600/30 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                  >
+                    <a href="/app-release.apk" download>
+                      <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      Download App
+                    </a>
                   </Button>
                 </div>
 
