@@ -107,7 +107,7 @@ export default function LoginPage() {
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      {/* ── Left: Branding Panel ── */}
+      {/* ── Left: Branding Panel (Desktop only) ── */}
       <div className="hidden lg:flex lg:w-[52%] relative z-10 flex-col justify-between p-14">
         {/* Logo */}
         <div className="flex items-center gap-3">
@@ -122,7 +122,7 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10">
               <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
-              Surigao Marketplacee
+              Surigao Marketplace
             </div>
             <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight animate-broken-lamp">
               Your local market,{' '}
