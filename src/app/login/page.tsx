@@ -89,7 +89,6 @@ export default function LoginPage() {
         // Open OAuth in in-app browser for mobile
         const result = await authService.signInWithOAuth('google', {
           redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: true,
         })
         
         if (result.url) {
