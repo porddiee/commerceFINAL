@@ -356,7 +356,7 @@ export function Header() {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              {!isCapacitor && (
+              {!isMobileAppRoute && (
                 <>
                   <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                     <Link href="/about">About</Link>
