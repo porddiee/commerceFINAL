@@ -113,20 +113,20 @@ export default function RegisterPage() {
       
       if (isMobileApp) {
         // Open OAuth in in-app browser for mobile
-        const { data } = await authService.signInWithOAuth('google', {
+        const result = await authService.signInWithOAuth('google', {
           redirectTo: `${window.location.origin}/auth/callback`,
           skipBrowserRedirect: true,
         })
         
-        if (data.url) {
-          await Browser.open({ url: data.url })
+        if (result.url) {
+          await Browser.open({ url: result.url })
         }
       } else {
         // Regular web flow
-        const data = await authService.signInWithOAuth('google', {
+        const result = await authService.signInWithOAuth('google', {
           redirectTo: `${window.location.origin}/auth/callback`,
         })
-        if (data.url) window.location.href = data.url
+        if (result.url) window.location.href = result.url
       }
     } catch (error: unknown) {
       const errorMessage = error && typeof error === 'object' && 'message' in error
