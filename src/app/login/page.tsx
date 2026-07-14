@@ -74,8 +74,14 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
+      // Use custom deep link for mobile app, web URL for browser
+      const isMobileApp = window.location.pathname === '/app' || window.location.pathname === '/login'
+      const redirectTo = isMobileApp 
+        ? 'surimart://auth/callback'
+        : `${window.location.origin}/auth/callback`
+      
       const data = await authService.signInWithOAuth('google', {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
       })
       if (data.url) window.location.href = data.url
     } catch (error: unknown) {
