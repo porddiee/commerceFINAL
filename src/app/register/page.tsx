@@ -14,7 +14,14 @@ import {
   ShoppingBag, Shield, Users, Star, Check, TrendingUp,
 } from 'lucide-react'
 import Image from 'next/image'
-import { Browser } from '@capacitor/browser'
+
+// Dynamically import Capacitor Browser to avoid build issues on web
+let Browser: any = null
+try {
+  Browser = require('@capacitor/browser')
+} catch (e) {
+  // Capacitor Browser not available (web build)
+}
 
 const FEATURES = [
   { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
