@@ -12,12 +12,14 @@ import { authService, profilesService } from '@/services'
 import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, ArrowRight, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 
-// Dynamically import Capacitor Browser to avoid build issues on web
+// Dynamically import Capacitor to avoid build issues on web
+let Capacitor: any = null
 let Browser: any = null
 try {
+  Capacitor = require('@capacitor/core')
   Browser = require('@capacitor/browser')
 } catch (e) {
-  // Capacitor Browser not available (web build)
+  // Capacitor not available (web build)
 }
 
 const FEATURES = [
@@ -83,9 +85,9 @@ export default function LoginPage() {
     setError('')
     try {
       // Use Capacitor Browser for OAuth in mobile app
-      const isMobileApp = window.location.pathname === '/app' || window.location.pathname === '/login'
+      const isNativeApp = Capacitor?.isNativePlatform() || false
       
-      if (isMobileApp) {
+      if (isNativeApp) {
         // Open OAuth in in-app browser for mobile
         const result = await authService.signInWithOAuth('google', {
           redirectTo: `${window.location.origin}/auth/callback`,
