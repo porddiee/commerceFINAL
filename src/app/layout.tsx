@@ -43,7 +43,7 @@ export default async function RootLayout({
             <Header />
             <div className="flex flex-1">
               <DynamicSidebar />
-              <main className="flex-1 lg:ml-16 transition-all duration-300">
+              <main className="flex-1 lg:ml-16 pt-16 transition-all duration-300">
                 {children}
               </main>
             </div>

@@ -61,9 +61,6 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [heroInView, setHeroInView] = useState(false)
   const [heroPointer, setHeroPointer] = useState({ x: 50, y: 38 })
-  const [cursorTrail, setCursorTrail] = useState<Array<{ x: number; y: number; id: number }>>([])
-  const trailIdRef = useRef(0)
-  const [scrollProgress, setScrollProgress] = useState(0)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -291,14 +288,6 @@ export default function HomePage() {
       const y = ((e.clientY - rect.top) / rect.height) * 100
       setHeroPointer({ x, y })
 
-      // Add to cursor trail
-      const id = trailIdRef.current++
-      setCursorTrail(prev => [...prev, { x, y, id }])
-
-      // Remove trail point after animation
-      setTimeout(() => {
-        setCursorTrail(prev => prev.filter(point => point.id !== id))
-      }, 1000)
     }
 
     window.addEventListener('mousemove', handleMouseMove)
@@ -334,9 +323,6 @@ export default function HomePage() {
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.scrollY
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight
-      const progress = (scrollTop / docHeight) * 100
-      setScrollProgress(Math.min(progress, 100))
       setShowBackToTop(scrollTop > 500)
     }
 
@@ -579,14 +565,6 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 space-y-0">
-      {/* Scroll Progress Bar */}
-      <div className="fixed top-0 left-0 right-0 h-1.5 bg-slate-200 dark:bg-slate-800 z-[100]">
-        <div
-          className="h-full bg-gradient-to-r from-indigo-600 to-blue-600 transition-all duration-150 ease-out"
-          style={{ width: `${scrollProgress}%` }}
-        />
-      </div>
-
       {/* Back to Top Button */}
       {showBackToTop && (
         <button
@@ -755,12 +733,6 @@ export default function HomePage() {
         .animate-badge-wave-right {
           animation: badgeWaveRight 3s ease-in-out infinite 0.15s;
           will-change: transform;
-        }
-        .mouse-glow {
-          animation: mouseGlow 0.3s ease-out forwards;
-        }
-        .trail-fade {
-          animation: trailFade 1s ease-out forwards;
         }
         .animate-fade-in-up {
           animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -1011,19 +983,6 @@ export default function HomePage() {
             <div className="absolute top-10 left-10 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
             <div className="absolute bottom-10 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
           </div>
-
-          {/* Mouse cursor trail effect */}
-          {cursorTrail.map((point) => (
-            <div
-              key={point.id}
-              className="absolute w-6 h-6 rounded-full blur-x.2 pointer-events-none trail-fade"
-              style={{
-                left: `${point.x}%`,
-                top: `${point.y}%`,
-                background: `linear-gradient(135deg, rgba(59, 130, 246, 2), rgba(147, 197, 253, 0.7), rgba(255, 255, 255, 0.45))`
-              }}
-            />
-          ))}
 
           <div className="container mx-auto relative z-10">
             <div className="grid lg:grid-cols-2 gap-8 sm:gap-12 items-center">

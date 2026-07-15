@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.surimart.app-mergeReleaseResources-29:/values-h550dp-port-v13/values-h550dp-port-v13.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\cliff\\.gradle\\caches\\transforms-3\\996b6b38875e843414be90c634e94c19\\transformed\\material-1.10.0\\res\\values-h550dp-port-v13\\values-h550dp-port-v13.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "76",
+                        "endOffsets": "127"
+                    }
+                }
+            ]
+        }
+    ]
+}
