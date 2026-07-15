@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import type { Notification } from '@/types'
 import {
@@ -22,18 +22,11 @@ import { toast } from '@/hooks/use-toast'
 
 export function Header() {
   const router = useRouter()
-  const pathname = usePathname()
   const { user, profile, signOut } = useAuthStore()
   const { cartCount, setCartCount } = useCartStore()
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
-
-  // Hide header on mobile app routes (/app, /login, /register) when not logged in
-  const isMobileAppRoute = pathname === '/app' || pathname === '/login' || pathname === '/register'
-  if (isMobileAppRoute && !user) {
-    return null
-  }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
@@ -356,16 +349,12 @@ export function Header() {
             </>
           ) : (
             <div className="flex items-center gap-2">
-              {!isMobileAppRoute && (
-                <>
-                  <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
-                    <Link href="/about">About</Link>
-                  </Button>
-                  <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
-                    <Link href="/contact">Contact</Link>
-                  </Button>
-                </>
-              )}
+              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
+                <Link href="/about">About</Link>
+              </Button>
+              <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
+                <Link href="/contact">Contact</Link>
+              </Button>
               <Button variant="ghost" asChild className="hover:bg-indigo-500/5 hover:scale-102 active:scale-98 transition-all rounded-full px-4 h-9 font-semibold text-xs text-slate-600 dark:text-slate-400">
                 <Link href="/login">Log in</Link>
               </Button>

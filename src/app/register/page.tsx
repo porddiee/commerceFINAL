@@ -15,16 +15,6 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 
-// Dynamically import Capacitor to avoid build issues on web
-let Capacitor: any = null
-let Browser: any = null
-try {
-  Capacitor = require('@capacitor/core')
-  Browser = require('@capacitor/browser')
-} catch (e) {
-  // Capacitor not available (web build)
-}
-
 const FEATURES = [
   { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
   { icon: Shield, title: 'Safe Transactions', desc: 'Verified sellers and secure payments' },
@@ -110,39 +100,10 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
     try {
-      // Use Capacitor Browser for OAuth in mobile app
-      const isNativeApp = Capacitor?.isNativePlatform() || false
-      
-      if (isNativeApp) {
-        // Open OAuth in in-app browser for mobile
-        const result = await authService.signInWithOAuth('google', {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        })
-        
-        if (result.url) {
-          await Browser.open({ url: result.url })
-          
-          // Listen for browser close and check auth state
-          Browser.addListener('browserFinished', async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user) {
-              setUser(session.user)
-              const profile = await profilesService.getProfileById(session.user.id)
-              if (profile) {
-                setProfile(profile)
-                router.push(profile.role === 'admin' ? '/admin' : '/user')
-              }
-            }
-            setLoading(false)
-          })
-        }
-      } else {
-        // Regular web flow
-        const result = await authService.signInWithOAuth('google', {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        })
-        if (result.url) window.location.href = result.url
-      }
+      const data = await authService.signInWithOAuth('google', {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      })
+      if (data.url) window.location.href = data.url
     } catch (error: unknown) {
       const errorMessage = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message

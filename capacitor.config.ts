@@ -1,6 +1,8 @@
-const config = {
+import type { CapacitorConfig } from '@capacitor/cli';
+
+const config: CapacitorConfig = {
   appId: 'com.surimart.app',
-  appName: 'SuriMart',
+  appName: 'SGShop',
   server: {
     url: 'https://commerce-final-8bic.vercel.app',
     cleartext: false
@@ -19,15 +21,6 @@ const config = {
     StatusBar: {
       style: 'dark',
       backgroundColor: '#ffffff'
-    },
-    App: {
-      deepLinks: [
-        {
-          scheme: 'surimart',
-          host: 'auth',
-          path: 'callback'
-        }
-      ]
     }
   }
 };

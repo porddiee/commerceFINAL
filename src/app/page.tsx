@@ -939,7 +939,7 @@ export default function HomePage() {
             {/* Logo reveal with enhanced gradient text */}
             <div className={`transition-all duration-700 ease-out ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-150'}`}>
               <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift drop-shadow-2xl">
-                SURIMART
+                SGSHOP
               </h1>
               <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-500 ease-out ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
             </div>
@@ -1037,7 +1037,7 @@ export default function HomePage() {
                     </div>
                     <div className="relative flex items-center gap-2">
                       <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-300 animate-pulse" />
-                      <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">Surigao Marketplace</span>
+                      <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">SGShop</span>
                     </div>
                   </div>
                   <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-tight min-h-[120px] -translate-y-[2%]">
@@ -1046,7 +1046,7 @@ export default function HomePage() {
                       <span className="animate-loop-to" style={{ animation: 'loopTo 0.8s ease-out 0.2s forwards' }}>to</span>
                     </span>
                     <span className="animate-loop-surimart block" style={{ animation: 'loopSuriMart 0.8s ease-out 0.4s forwards' }}>
-                      <span className="bg-gradient-to-r from-blue-300 via-white via-indigo-200 to-blue-300 bg-clip-text text-transparent animate-text-shine">SuriMart</span>
+                      <span className="bg-gradient-to-r from-blue-300 via-white via-indigo-200 to-blue-300 bg-clip-text text-transparent animate-text-shine">SGShop</span>
                     </span>
                   </h1>
                   <p className="text-base sm:text-lg lg:text-xl text-indigo-100/90 font-medium max-w-lg leading-relaxed animate-fade-in-up mt-6" style={{ animationDelay: '200ms' }}>
@@ -1615,7 +1615,7 @@ export default function HomePage() {
           <div className="container mx-auto max-w-5xl relative z-10">
             <h2 className={`text-3xl font-extrabold tracking-tight text-center text-slate-900 dark:text-white mb-10 transition-all duration-700 ${featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
               }`}>
-              Why Choose SuriMart?
+              Why Choose SGShop?
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className={`border border-slate-200 dark:border-slate-850 transition-all duration-700 hover:shadow-md ${featuresInView ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
@@ -1680,7 +1680,7 @@ export default function HomePage() {
               Ready to Start Buying or Selling?
             </h2>
             <p className="text-lg sm:text-xl text-indigo-100/90 max-w-2xl mx-auto leading-relaxed">
-              Join thousands of users already trading and connecting safely on SuriMart.
+              Join thousands of users already trading and connecting safely on SGShop.
             </p>
             <div className="flex gap-4 justify-center flex-wrap pt-4">
               <Button

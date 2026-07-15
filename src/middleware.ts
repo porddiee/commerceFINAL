@@ -6,11 +6,10 @@ export async function middleware(request: NextRequest) {
   // Update session
   const response = await updateSession(request)
 
+  // Protected routes
   const { pathname } = request.nextUrl
   const isProtectedRoute = pathname.startsWith('/user') || pathname.startsWith('/admin')
-  const isAuthRoute = pathname.startsWith('/login') || pathname.startsWith('/register')
   
-  // Protected routes
   if (isProtectedRoute) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()

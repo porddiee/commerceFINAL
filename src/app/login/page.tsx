@@ -12,16 +12,6 @@ import { authService, profilesService } from '@/services'
 import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, ArrowRight, TrendingUp } from 'lucide-react'
 import Image from 'next/image'
 
-// Dynamically import Capacitor to avoid build issues on web
-let Capacitor: any = null
-let Browser: any = null
-try {
-  Capacitor = require('@capacitor/core')
-  Browser = require('@capacitor/browser')
-} catch (e) {
-  // Capacitor not available (web build)
-}
-
 const FEATURES = [
   { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
   { icon: Shield, title: 'Safe Transactions', desc: 'Verified sellers and secure payments' },
@@ -84,39 +74,10 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      // Use Capacitor Browser for OAuth in mobile app
-      const isNativeApp = Capacitor?.isNativePlatform() || false
-      
-      if (isNativeApp) {
-        // Open OAuth in in-app browser for mobile
-        const result = await authService.signInWithOAuth('google', {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        })
-        
-        if (result.url) {
-          await Browser.open({ url: result.url })
-          
-          // Listen for browser close and check auth state
-          Browser.addListener('browserFinished', async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user) {
-              setUser(session.user)
-              const profile = await profilesService.getProfileById(session.user.id)
-              if (profile) {
-                setProfile(profile)
-                router.push(profile.role === 'admin' ? '/admin' : '/user')
-              }
-            }
-            setLoading(false)
-          })
-        }
-      } else {
-        // Regular web flow
-        const result = await authService.signInWithOAuth('google', {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        })
-        if (result.url) window.location.href = result.url
-      }
+      const data = await authService.signInWithOAuth('google', {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      })
+      if (data.url) window.location.href = data.url
     } catch (error: unknown) {
       const errorMessage = error && typeof error === 'object' && 'message' in error
         ? (error as { message: string }).message
@@ -146,7 +107,7 @@ export default function LoginPage() {
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
       </div>
 
-      {/* ── Left: Branding Panel (Desktop only) ── */}
+      {/* ── Left: Branding Panel ── */}
       <div className="hidden lg:flex lg:w-[52%] relative z-10 flex-col justify-between p-14">
         {/* Logo */}
         <div className="flex items-center gap-3">
@@ -161,7 +122,7 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10">
               <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
-              Surigao Marketplace
+              Surigao Marketplacee
             </div>
             <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight animate-broken-lamp">
               Your local market,{' '}

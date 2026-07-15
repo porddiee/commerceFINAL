@@ -50,12 +50,6 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
   const [isHovered, setIsHovered] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
 
-  // Hide sidebar on mobile app routes (/app, /login, /register) when not logged in
-  const isMobileAppRoute = pathname === '/app' || pathname === '/login' || pathname === '/register'
-  if (isMobileAppRoute && !user) {
-    return null
-  }
-
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024)
