@@ -16,7 +16,7 @@ import {
 import Image from 'next/image'
 
 const FEATURES = [
-  { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
+  { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from local sellers' },
   { icon: Shield, title: 'Safe Transactions', desc: 'Verified sellers and secure payments' },
   { icon: Users, title: 'Trusted Community', desc: 'Connect with real people near you' },
   { icon: Star, title: 'Rated & Reviewed', desc: 'Make informed decisions with reviews' },
@@ -137,10 +137,7 @@ export default function RegisterPage() {
       <div className="hidden lg:flex lg:w-[52%] relative z-10 flex-col justify-between p-14">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg overflow-hidden">
-            <Image src="/logo.png" alt="SuriMart" width={44} height={44} className="object-contain" />
-          </div>
-          <span className="text-white font-black text-xl tracking-tight">SuriMart</span>
+          <span className="text-white font-black text-xl tracking-tight">SGShop</span>
         </div>
 
         {/* Hero */}
@@ -183,7 +180,7 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        <p className="text-indigo-300/60 text-sm">© 2025 SuriMart · Surigao del Norte</p>
+        <p className="text-indigo-300/60 text-sm">© 2025 SGShop</p>
       </div>
 
       {/* ── Right: Register Form ── */}
@@ -191,17 +188,14 @@ export default function RegisterPage() {
         <div className="w-full max-w-md space-y-5">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 lg:hidden mb-2">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden">
-              <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="object-contain" />
-            </div>
-            <span className="text-white font-black text-lg">SuriMart</span>
+            <span className="text-white font-black text-lg">SGShop</span>
           </div>
 
           {/* Card */}
           <div className="rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-2xl border-0 p-8">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Create your account</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Join SuriMart and start buying or selling</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Join SGShop and start buying or selling</p>
             </div>
 
             {/* Google */}

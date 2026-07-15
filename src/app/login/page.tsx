@@ -13,7 +13,7 @@ import { Loader2, Eye, EyeOff, Mail, Lock, ShoppingBag, Shield, Users, Star, Arr
 import Image from 'next/image'
 
 const FEATURES = [
-  { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from Surigao sellers' },
+  { icon: ShoppingBag, title: 'Buy & Sell Locally', desc: 'Thousands of products from local sellers' },
   { icon: Shield, title: 'Safe Transactions', desc: 'Verified sellers and secure payments' },
   { icon: Users, title: 'Trusted Community', desc: 'Connect with real people near you' },
   { icon: Star, title: 'Rated & Reviewed', desc: 'Make informed decisions with reviews' },
@@ -111,10 +111,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-[52%] relative z-10 flex-col justify-between p-14">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-lg overflow-hidden">
-            <Image src="/logo.png" alt="SuriMart" width={44} height={44} className="object-contain" />
-          </div>
-          <span className="text-white font-black text-xl tracking-tight">SuriMart</span>
+          <span className="text-white font-black text-xl tracking-tight">SGShop</span>
         </div>
 
         {/* Hero text */}
@@ -122,7 +119,7 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10">
               <TrendingUp className="w-3.5 h-3.5 text-indigo-300 animate-pulse" />
-              Surigao Marketplacee
+              SGShop
             </div>
             <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight tracking-tight animate-broken-lamp">
               Your local market,{' '}
@@ -157,7 +154,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-indigo-300/60 text-sm">© 2025 SuriMart · Surigao del Norte</p>
+        <p className="text-indigo-300/60 text-sm">© 2025 SGShop</p>
       </div>
 
       {/* ── Right: Login Form ── */}
@@ -165,17 +162,14 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 lg:hidden mb-2">
-            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center overflow-hidden">
-              <Image src="/logo.png" alt="SuriMart" width={40} height={40} className="object-contain" />
-            </div>
-            <span className="text-white font-black text-lg">SuriMart</span>
+            <span className="text-white font-black text-lg">SGShop</span>
           </div>
 
           {/* Form card — frosted white on the indigo background */}
           <div className="rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-2xl border-0 p-8">
             <div className="mb-7">
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Welcome back</h2>
-              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to your SuriMart account</p>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Sign in to your SGShop account</p>
             </div>
 
             {/* Google */}
