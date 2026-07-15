@@ -2,7 +2,7 @@ const config = {
   appId: 'com.surimart.app',
   appName: 'SuriMart',
   server: {
-    url: 'https://commerce-final-8bic.vercel.app/app',
+    url: 'https://commerce-final-8bic.vercel.app',
     cleartext: false
   },
   webDir: 'public',
