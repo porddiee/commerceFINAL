@@ -41,7 +41,7 @@ export default async function RootLayout({
         <ProfileProvider user={user} profile={profile}>
           <div className="min-h-screen flex flex-col">
             <Header />
-            <div className="flex flex-1 pt-16">
+            <div className="flex flex-1">
               <DynamicSidebar />
               <main className="flex-1 lg:ml-16 transition-all duration-300">
                 {children}

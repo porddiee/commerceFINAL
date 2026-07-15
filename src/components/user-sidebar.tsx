@@ -141,7 +141,7 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
       {/* Sidebar — indigo gradient matching homepage */}
       <aside
         className={cn(
-          'fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
+          'fixed left-0 top-0 z-[60] h-screen bg-gradient-to-b from-indigo-900 via-indigo-800 to-blue-900 border-r border-white/10 transition-all duration-300 shadow-2xl shadow-indigo-900/50',
           shouldExpand ? 'w-64' : 'w-16',
           'lg:translate-x-0',
           !isOpen && '-translate-x-full lg:translate-x-0'
