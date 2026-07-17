@@ -66,10 +66,10 @@ export function OAuthHandler() {
                 console.log('User profile:', profile)
                 if (profile?.role === 'admin') {
                   console.log('Redirecting to admin')
-                  router.push('/admin')
+                  window.location.href = '/admin'
                 } else {
                   console.log('Redirecting to user')
-                  router.push('/user')
+                  window.location.href = '/user'
                 }
               } else {
                 console.log('No user found after exchange, redirecting to login')
