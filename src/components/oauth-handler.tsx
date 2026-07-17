@@ -39,13 +39,23 @@ export function OAuthHandler() {
             console.error('OAuth error:', error, errorDescription)
             router.push('/login?error=' + encodeURIComponent(errorDescription || error))
           } else if (code) {
+            console.log('OAuth code received, attempting exchange:', code)
             // Exchange the code for session client-side
             try {
               const supabase = createClient()
-              await supabase.auth.exchangeCodeForSession(code)
+              console.log('Supabase client created')
+              const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+              console.log('Code exchange result:', { data, error: exchangeError })
+              
+              if (exchangeError) {
+                console.error('Exchange error:', exchangeError)
+                router.push('/login?error=' + encodeURIComponent(exchangeError.message))
+                return
+              }
               
               // Get user to determine redirect
               const { data: { user } } = await supabase.auth.getUser()
+              console.log('User after exchange:', user)
               if (user) {
                 const { data: profile } = await supabase
                   .from('profiles')
@@ -53,12 +63,16 @@ export function OAuthHandler() {
                   .eq('id', user.id)
                   .single()
                 
+                console.log('User profile:', profile)
                 if (profile?.role === 'admin') {
+                  console.log('Redirecting to admin')
                   router.push('/admin')
                 } else {
+                  console.log('Redirecting to user')
                   router.push('/user')
                 }
               } else {
+                console.log('No user found after exchange, redirecting to login')
                 router.push('/login')
               }
             } catch (error) {
