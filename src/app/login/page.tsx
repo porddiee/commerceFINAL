@@ -74,8 +74,15 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
+      // Check if running in Capacitor app with improved detection
+      const capacitor = (window as any).Capacitor
+      const isCapacitor = capacitor?.isNativePlatform?.() || capacitor?.getPlatform?.() !== 'web'
+      const redirectTo = isCapacitor ? 'com.sgshop.app://auth/callback' : `${window.location.origin}/auth/callback`
+      
+      console.log('Environment detection:', { isCapacitor, platform: capacitor?.getPlatform?.(), redirectTo })
+      
       const data = await authService.signInWithOAuth('google', {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo,
       })
       if (data.url) window.location.href = data.url
     } catch (error: unknown) {

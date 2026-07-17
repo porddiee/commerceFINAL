@@ -1,11 +1,12 @@
 {
-	"appId": "com.surimart.app",
+	"appId": "com.sgshop.app",
 	"appName": "SGShop",
+	"webDir": "public",
 	"server": {
 		"url": "https://commerce-final-8bic.vercel.app",
-		"cleartext": false
+		"cleartext": false,
+		"androidScheme": "https"
 	},
-	"webDir": "public",
 	"plugins": {
 		"SplashScreen": {
 			"launchShowDuration": 3000,
@@ -20,5 +21,10 @@
 			"style": "dark",
 			"backgroundColor": "#ffffff"
 		}
+	},
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": true
 	}
 }

@@ -8,6 +8,7 @@ import ProfileProvider from "@/components/profile-provider"
 import { ThemeProvider } from "@/lib/theme-provider"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { Toaster } from "@/components/ui/toaster"
+import { OAuthHandler } from "@/components/oauth-handler"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,6 +39,7 @@ export default async function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <ThemeProvider />
+        <OAuthHandler />
         <ProfileProvider user={user} profile={profile}>
           <div className="min-h-screen flex flex-col">
             <Header />

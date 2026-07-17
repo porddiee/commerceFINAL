@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/types'
 import type { User } from '@supabase/supabase-js'
+import { Browser } from '@capacitor/browser'
 
 const supabase = createClient()
 
@@ -52,13 +53,24 @@ export const authService = {
    * Sign in with OAuth provider (Google, etc.)
    */
   async signInWithOAuth(provider: 'google' | 'github' | 'facebook', options?: { redirectTo?: string }) {
+    // Use custom scheme for deep linking back to the app
+    const redirectTo = options?.redirectTo || 'com.sgshop.app://auth/callback'
+    
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: options?.redirectTo || `${window.location.origin}/auth/callback`,
+        redirectTo,
+        skipBrowserRedirect: true,
       },
     })
+    
     if (error) throw error
+    
+    // Open the OAuth URL in Capacitor Browser
+    if (data.url) {
+      await Browser.open({ url: data.url })
+    }
+    
     return data
   },
 
