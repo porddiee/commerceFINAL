@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { App } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export function OAuthHandler() {
   const pathname = usePathname()
@@ -38,8 +39,32 @@ export function OAuthHandler() {
             console.error('OAuth error:', error, errorDescription)
             router.push('/login?error=' + encodeURIComponent(errorDescription || error))
           } else if (code) {
-            // Navigate to the callback page with the code
-            router.push(`/auth/callback?code=${code}`)
+            // Exchange the code for session client-side
+            try {
+              const supabase = createClient()
+              await supabase.auth.exchangeCodeForSession(code)
+              
+              // Get user to determine redirect
+              const { data: { user } } = await supabase.auth.getUser()
+              if (user) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('role')
+                  .eq('id', user.id)
+                  .single()
+                
+                if (profile?.role === 'admin') {
+                  router.push('/admin')
+                } else {
+                  router.push('/user')
+                }
+              } else {
+                router.push('/login')
+              }
+            } catch (error) {
+              console.error('Error exchanging code for session:', error)
+              router.push('/login?error=' + encodeURIComponent('Failed to complete authentication'))
+            }
           }
         }
       })
@@ -52,7 +77,7 @@ export function OAuthHandler() {
     }
   }, [router])
 
-  // Handle OAuth callback in the browser
+  // Handle OAuth callback in the browser (fallback)
   useEffect(() => {
     if (pathname === '/auth/callback') {
       const url = new URL(window.location.href)
@@ -64,8 +89,35 @@ export function OAuthHandler() {
         console.error('OAuth error:', error, errorDescription)
         router.push('/login?error=' + encodeURIComponent(errorDescription || error))
       } else if (code) {
-        // The callback page will handle the code exchange
-        // This is just a fallback if the appUrlOpen listener doesn't catch it
+        // Exchange the code for session client-side
+        const exchangeCode = async () => {
+          try {
+            const supabase = createClient()
+            await supabase.auth.exchangeCodeForSession(code)
+            
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+              
+              if (profile?.role === 'admin') {
+                router.push('/admin')
+              } else {
+                router.push('/user')
+              }
+            } else {
+              router.push('/login')
+            }
+          } catch (error) {
+            console.error('Error exchanging code for session:', error)
+            router.push('/login?error=' + encodeURIComponent('Failed to complete authentication'))
+          }
+        }
+        
+        exchangeCode()
       }
     }
   }, [pathname, router])
