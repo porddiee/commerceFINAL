@@ -26,6 +26,7 @@ export interface UpdateListingData {
   location?: string
   images?: string[]
   quantity?: number
+  buy_type?: string
   status?: ListingStatus
 }
 

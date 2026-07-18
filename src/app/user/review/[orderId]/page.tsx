@@ -8,8 +8,9 @@ import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/lib/store/auth'
 import { ordersService, reviewsService, notificationsService } from '@/services'
 import { toast } from '@/hooks/use-toast'
-import { Star, ArrowLeft, Package, User, CheckCircle, Heart, MessageSquare } from 'lucide-react'
+import { Star, ArrowLeft, Package, User, CheckCircle, Heart, MessageSquare, ImagePlus, X } from 'lucide-react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ReviewPage() {
   const { user } = useAuthStore()
@@ -25,6 +26,8 @@ export default function ReviewPage() {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [reviewImages, setReviewImages] = useState<File[]>([])
+  const [imagePreviews, setImagePreviews] = useState<string[]>([])
 
   useEffect(() => {
     if (user && orderId) {
@@ -62,13 +65,45 @@ export default function ReviewPage() {
 
     setSubmitting(true)
     try {
-      await reviewsService.createReview({
+      const supabase = createClient()
+
+      // Create the review first
+      const review = await reviewsService.createReview({
         listing_id: order.listing_id,
         reviewer_id: user.id,
         reviewee_id: order.seller_id,
         rating: rating,
         comment: comment.trim() || 'Great buyer experience!',
       })
+
+      // Upload review images if any
+      if (reviewImages.length > 0 && review?.id) {
+        const uploadPromises = reviewImages.map(async (file, index) => {
+          const fileExt = file.name.split('.').pop()
+          const fileName = `${Date.now()}-${index}.${fileExt}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('review-images')
+            .upload(fileName, file)
+
+          if (uploadError) throw uploadError
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('review-images')
+            .getPublicUrl(fileName)
+
+          // Save image reference to review_images table
+          return supabase
+            .from('review_images')
+            .insert({
+              review_id: review.id,
+              image_url: publicUrl,
+              sort_order: index,
+            })
+        })
+
+        await Promise.all(uploadPromises)
+      }
 
       // Create notification for the seller
       try {
@@ -82,8 +117,13 @@ export default function ReviewPage() {
         })
       } catch (notificationError) {
         console.error('Notification error:', notificationError)
-        // Don't throw error - review was submitted successfully
       }
+
+      toast({
+        title: 'Review Submitted',
+        description: 'Thank you for your feedback!',
+        variant: 'default'
+      })
 
       router.push('/user/transactions')
     } catch (error) {
@@ -280,6 +320,75 @@ export default function ReviewPage() {
                 rows={5}
                 className="w-full px-4 py-3 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 focus:border-transparent text-sm font-medium transition-all"
               />
+            </div>
+
+            {/* Image Upload Section */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Add Photos
+                </Label>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  Optional
+                </span>
+              </div>
+              
+              {/* Image Previews */}
+              {imagePreviews.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-3">
+                  {imagePreviews.map((preview, index) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 group">
+                      <img src={preview} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReviewImages(prev => prev.filter((_, i) => i !== index))
+                          setImagePreviews(prev => prev.filter((_, i) => i !== index))
+                        }}
+                        className="absolute top-1 right-1 bg-slate-900/80 hover:bg-rose-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Upload Button */}
+              {imagePreviews.length < 5 && (
+                <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition-all duration-200">
+                  <ImagePlus className="h-5 w-5 text-slate-400" />
+                  <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
+                    {imagePreviews.length === 0 ? 'Add photos to your review' : 'Add more photos'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files || [])
+                      const remaining = 5 - imagePreviews.length
+                      const newFiles = files.slice(0, remaining)
+                      
+                      setReviewImages(prev => [...prev, ...newFiles])
+                      
+                      // Generate previews
+                      newFiles.forEach((file) => {
+                        const reader = new FileReader()
+                        reader.onload = (ev) => {
+                          setImagePreviews(prev => [...prev, ev.target?.result as string])
+                        }
+                        reader.readAsDataURL(file)
+                      })
+                    }}
+                  />
+                </label>
+              )}
+              
+              <p className="text-[10px] text-slate-400 text-center">
+                You can upload up to 5 images
+              </p>
             </div>
 
             {/* Buttons */}

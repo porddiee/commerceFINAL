@@ -1,4 +1,4 @@
-'use client'
+/*  */'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
@@ -40,6 +40,9 @@ type TrendingProduct = {
   views: number | null
   images: string[] | null
 }
+
+// Module-level flag that persists across component re-mounts within the same page session
+let introShownGlobally = false
 
 export default function HomePage() {
   const router = useRouter()
@@ -144,27 +147,13 @@ export default function HomePage() {
   useEffect(() => {
     setIsClient(true)
 
-    // Use Navigation Timing API to detect navigation type
-    const navType = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
-    console.log('Navigation type:', navType?.type)
-
-    if (navType?.type === 'reload') {
-      // This is a reload - clear sessionStorage so intro plays
-      console.log('Reload detected - clearing sessionStorage')
-      sessionStorage.removeItem('hasSeenCinematicIntro')
-      localStorage.removeItem('introLastShown')
-    } else if (navType?.type === 'navigate') {
-      // This is navigation (could be back/forward or fresh visit)
-      // Check referrer to distinguish
-      const referrer = document.referrer
-      const currentOrigin = window.location.origin
-
-      if (referrer && referrer.startsWith(currentOrigin)) {
-        // Same-origin referrer = navigation between pages
-        console.log('Same-origin navigation - keeping sessionStorage')
-      } else {
-        // Different/no referrer = fresh visit
-        console.log('Fresh visit - clearing sessionStorage')
+    // Detect page reloads using Navigation Timing API
+    // On reload, clear the session flag so the intro plays again
+    // On fresh visit or back-navigation, sessionStorage persists normally
+    const navEntries = performance.getEntriesByType('navigation')
+    if (navEntries.length > 0) {
+      const navType = (navEntries[0] as PerformanceNavigationTiming).type
+      if (navType === 'reload') {
         sessionStorage.removeItem('hasSeenCinematicIntro')
         localStorage.removeItem('introLastShown')
       }
@@ -182,6 +171,11 @@ export default function HomePage() {
   useEffect(() => {
     if (!isClient) return
 
+    // Check if intro was already shown - module-level flag persists across remounts
+    if (introShownGlobally) {
+      return
+    }
+
     // Check if intro was already shown in this session
     const hasSeenIntro = sessionStorage.getItem('hasSeenCinematicIntro')
 
@@ -189,6 +183,9 @@ export default function HomePage() {
       // Don't show intro if already seen
       return
     }
+
+    // Mark as shown globally to prevent replay on re-mount (e.g. back-navigation)
+    introShownGlobally = true
 
     setShowCinematicIntro(true)
     setIntroMounted(true)
@@ -829,13 +826,19 @@ export default function HomePage() {
           0% {
             background-position: 200% center;
           }
+          50% {
+            background-position: -100% center;
+          }
           100% {
-            background-position: -200% center;
+            background-position: 200% center;
           }
         }
         .animate-text-shine {
-          background-size: 300% 100%;
-          animation: textShine 2.5s ease-in-out infinite;
+          background: linear-gradient(40deg, #1e1b4b 20%, #4f46e5 40%, #ffffff 50%, #4f46e5 60%, #1e1b4b 80%);
+          background-size: 200% 100%;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: textShine 8s ease-in-out infinite;
           will-change: background-position;
         }
         @keyframes slideUp {
@@ -869,11 +872,11 @@ export default function HomePage() {
 
       {/* Cinematic Introduction - stays mounted briefly after hiding for crossfade */}
       {introMounted && (
-        <div className={`fixed inset-0 z-[200] bg-black flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${!showCinematicIntro || cinematicStage >= 5 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`fixed inset-0 z-[200] bg-white flex items-center justify-center overflow-hidden transition-opacity duration-4000 ${!showCinematicIntro || cinematicStage >= 5 ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
           {/* Skip Button - Enhanced for accessibility and touch targets */}
           <button
             onClick={skipCinematicIntro}
-            className="absolute top-4 right-4 z-30 flex items-center gap-2 px-5 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/25 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95 min-h-[44px] min-w-[88px] shadow-lg hover:shadow-xl"
+            className="absolute top-4 right-4 z-30 flex items-center gap-2 px-5 py-3 bg-indigo-50/80 backdrop-blur-md border border-indigo-100 text-indigo-900 hover:bg-indigo-100 rounded-full text-sm font-semibold transition-all duration-200 hover:scale-105 active:scale-95 min-h-[44px] min-w-[88px] shadow-md hover:shadow-lg"
             aria-label="Skip introduction"
           >
             <X className="h-4 w-4" />
@@ -883,77 +886,75 @@ export default function HomePage() {
           {/* Background image that fades in smoothly - matches hero section */}
           <div className={`absolute inset-0 transition-opacity duration-3000 ease-in-out ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'}`}>
             <img
-              src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop"
+              src="/hero-bg.png"
               alt=""
               className="w-full h-full object-cover"
             />
-            {/* Dark overlay gradients for readability */}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-indigo-950/80 to-blue-950/70" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30" />
+            {/* No overlay gradient - clean background */}
           </div>
 
           {/* Progress indicator bar */}
-          <div className="absolute bottom-0 left-0 right-0 z-30 h-1 bg-white/10">
+          <div className="absolute bottom-0 left-0 right-0 z-30 h-1 bg-indigo-100">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 via-blue-400 to-indigo-300 transition-all duration-75 ease-linear"
+              className="h-full bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-400 transition-all duration-75 ease-linear"
               style={{ width: `${introProgress}%` }}
             />
           </div>
 
-          {/* Cinematic letterbox effect */}
+          {/* Cinematic letterbox effect - lighter version for light theme */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-20">
-            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
-            <div className={`h-16 bg-black transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
+            <div className={`h-16 bg-white/90 transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
+            <div className={`h-16 bg-white/90 transition-all duration-2500 ${cinematicStage >= 5 ? 'h-0' : ''}`} />
           </div>
 
           {/* Main content - fades out smoothly on outro */}
           <div className={`relative z-10 text-center transition-all duration-1000 ease-in-out ${!showCinematicIntro || cinematicStage >= 5 ? 'opacity-0 scale-95 translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
             {/* Logo reveal with enhanced gradient text */}
             <div className={`transition-all duration-700 ease-out ${cinematicStage >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-150'}`}>
-              <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 bg-gradient-to-r from-indigo-400 via-white to-blue-400 bg-clip-text text-transparent animate-gradient-shift drop-shadow-2xl">
+              <h1 className="text-4xl sm:text-8xl font-black tracking-widest mb-4 animate-text-shine bg-clip-text text-transparent drop-shadow-md">
                 SGSHOP
               </h1>
-              <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto transition-all duration-500 ease-out ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
+              <div className={`w-32 h-1 bg-gradient-to-r from-transparent via-indigo-650 to-transparent mx-auto transition-all duration-500 ease-out ${cinematicStage >= 2 ? 'scale-x-100' : 'scale-x-0'}`} />
             </div>
 
             {/* Tagline reveal with improved contrast */}
             <div className={`mt-8 transition-all duration-500 ease-out delay-200 ${cinematicStage >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-              <p className="text-base sm:text-2xl text-indigo-200 font-light tracking-wide drop-shadow-md">
+              <p className="text-base sm:text-2xl text-indigo-905 font-bold tracking-wide drop-shadow-sm">
                 Your Gateway to the Surigao
               </p>
             </div>
 
             {/* Subtitle - words show together with better spacing */}
             <div className={`mt-6 flex items-center justify-center gap-4 sm:gap-6 transition-all duration-300 ease-out ${cinematicStage >= 4 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
+              <span className="text-xs sm:text-base text-indigo-700 tracking-widest uppercase font-bold drop-shadow-sm">
                 Marketplace
               </span>
-              <span className="text-indigo-400/60">•</span>
-              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
+              <span className="text-indigo-400/40">•</span>
+              <span className="text-xs sm:text-base text-indigo-700 tracking-widest uppercase font-bold drop-shadow-sm">
                 Community
               </span>
-              <span className="text-indigo-400/60">•</span>
-              <span className="text-xs sm:text-base text-indigo-300/90 tracking-widest uppercase font-bold drop-shadow-sm">
+              <span className="text-indigo-400/40">•</span>
+              <span className="text-xs sm:text-base text-indigo-700 tracking-widest uppercase font-bold drop-shadow-sm">
                 Connection
               </span>
             </div>
 
             {/* Enhanced decorative particles with animation */}
             <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ease-out ${cinematicStage >= 5 ? 'opacity-100' : 'opacity-0'}`}>
-              <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-indigo-400 rounded-full animate-pulse shadow-lg shadow-indigo-400/50" />
-              <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-blue-400 rounded-full animate-pulse delay-300 shadow-lg shadow-blue-400/50" />
-              <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-purple-400 rounded-full animate-pulse delay-700 shadow-lg shadow-purple-400/50" />
-              <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-indigo-300 rounded-full animate-pulse delay-1000 shadow-lg shadow-indigo-300/50" />
+              <div className="absolute top-1/4 left-1/4 w-3 h-3 bg-indigo-500 rounded-full animate-pulse shadow-lg shadow-indigo-500/50" />
+              <div className="absolute top-1/3 right-1/4 w-3 h-3 bg-blue-500 rounded-full animate-pulse delay-300 shadow-lg shadow-blue-500/50" />
+              <div className="absolute bottom-1/4 left-1/3 w-3 h-3 bg-purple-500 rounded-full animate-pulse delay-700 shadow-lg shadow-purple-500/50" />
+              <div className="absolute bottom-1/3 right-1/3 w-3 h-3 bg-indigo-400 rounded-full animate-pulse delay-1000 shadow-lg shadow-indigo-400/50" />
             </div>
 
             {/* Animated ring with enhanced glow */}
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-indigo-500/40 rounded-full transition-all duration-700 ease-out shadow-lg shadow-indigo-500/30 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
-            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border-2 border-blue-500/30 rounded-full transition-all duration-700 ease-out delay-100 shadow-lg shadow-blue-500/20 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-indigo-400/40 rounded-full transition-all duration-700 ease-out shadow-lg shadow-indigo-400/30 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
+            <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 border-2 border-blue-400/30 rounded-full transition-all duration-700 ease-out delay-100 shadow-lg shadow-blue-400/20 ${cinematicStage >= 5 ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}`} />
           </div>
 
           {/* Dramatic light rays with improved performance */}
           <div className={`absolute inset-0 overflow-hidden pointer-events-none transition-opacity duration-700 ease-out ${cinematicStage >= 1 ? 'opacity-100' : 'opacity-0'} ${cinematicStage >= 5 ? 'opacity-0' : ''}`}>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-500/40 via-transparent to-transparent animate-pulse" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-indigo-400/30 via-transparent to-transparent animate-pulse" />
           </div>
         </div>
       )}
@@ -963,25 +964,23 @@ export default function HomePage() {
         {/* Hero Showcase Section */}
         <section
           ref={heroRef}
-          className="text-white py-12 sm:py-16 px-4 relative overflow-hidden min-h-[500px] sm:min-h-[600px] flex items-center shadow-xl"
+          className="text-slate-900 py-12 sm:py-16 px-4 relative overflow-hidden min-h-[500px] sm:min-h-[600px] flex items-center shadow-xl"
           onPointerMove={handleHeroPointerMove}
         >
           {/* Background Image */}
           <div className="absolute inset-0 pointer-events-none">
             <img
-              src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=2070&auto=format&fit=crop"
+              src="/hero-bg.png"
               alt="Marketplace background"
               className="w-full h-full object-cover"
             />
-            {/* Dark overlay gradient for readability */}
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-indigo-950/80 to-blue-950/70" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30" />
+            {/* No overlay gradient - clean background */}
           </div>
 
           {/* Glow backdrop elements */}
           <div className="absolute inset-0 opacity-15 pointer-events-none">
-            <div className="absolute top-10 left-10 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-10 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-blue-500 rounded-full blur-3xl animate-pulse delay-1000" />
+            <div className="absolute top-10 left-10 w-64 sm:w-96 h-64 sm:h-96 bg-indigo-300/40 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-10 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-blue-300/40 rounded-full blur-3xl animate-pulse delay-1000" />
           </div>
 
           <div className="container mx-auto relative z-10">
@@ -989,26 +988,25 @@ export default function HomePage() {
               {/* Left Side: Content & Actions */}
               <div className="space-y-6 sm:space-y-8 text-left">
                 <div className="space-y-2.5 sm:space-y-3.5">
-                  <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-200 border border-white/10 -translate-y-[10%] hover:scale-[1.03] transition-transform cursor-default overflow-hidden relative">
+                  <div className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-indigo-50 border border-indigo-150 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-indigo-800 -translate-y-[10%] hover:scale-[1.03] transition-transform cursor-default overflow-hidden relative">
                     <div className="absolute inset-0 flex">
                       <div className="flex-1 animate-badge-wave-left" />
                       <div className="flex-1 animate-badge-wave-right" />
                     </div>
                     <div className="relative flex items-center gap-2">
-                      <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-300 animate-pulse" />
-                      <span className="animate-broken-lamp font-bold text-[10px] sm:text-xs">SGShop</span>
+                      <ShoppingBag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-650 animate-pulse" />
+                      <span className="font-bold text-[10px] sm:text-xs text-indigo-850">Welcome to SGShop</span>
                     </div>
                   </div>
                   <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight leading-tight min-h-[120px] -translate-y-[2%]">
-                    <span className="flex flex-wrap gap-x-3 items-center">
-                      <span className="animate-loop-welcome" style={{ animation: 'loopWelcome 0.8s ease-out forwards' }}>Welcome</span>
-                      <span className="animate-loop-to" style={{ animation: 'loopTo 0.8s ease-out 0.2s forwards' }}>to</span>
+                    <span className="block text-indigo-950">
+                      <span className="animate-loop-welcome" style={{ animation: 'loopWelcome 0.8s ease-out forwards' }}>Shop More.</span>
                     </span>
                     <span className="animate-loop-surimart block" style={{ animation: 'loopSuriMart 0.8s ease-out 0.4s forwards' }}>
-                      <span className="bg-gradient-to-r from-blue-300 via-white via-indigo-200 to-blue-300 bg-clip-text text-transparent animate-text-shine">SGShop</span>
+                      <span className="animate-text-shine bg-clip-text text-transparent">Live Better.</span>
                     </span>
                   </h1>
-                  <p className="text-base sm:text-lg lg:text-xl text-indigo-100/90 font-medium max-w-lg leading-relaxed animate-fade-in-up mt-6" style={{ animationDelay: '200ms' }}>
+                  <p className="text-base sm:text-lg lg:text-xl text-slate-700 font-semibold max-w-lg leading-relaxed animate-fade-in-up mt-6" style={{ animationDelay: '200ms' }}>
                     Find what matters. Sell with trust.
                   </p>
                 </div>
@@ -1017,7 +1015,7 @@ export default function HomePage() {
                   <Button
                     size="lg"
                     asChild
-                    className="bg-white hover:bg-indigo-50 text-indigo-700 shadow-xl rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base border-none"
                   >
                     <Link href="/browse">
                       <ShoppingBag className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-bounce" />
@@ -1028,7 +1026,7 @@ export default function HomePage() {
                     size="lg"
                     variant="outline"
                     asChild
-                    className="bg-white/10 backdrop-blur-md border-white/20 text-white hover:bg-white/20 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                    className="bg-white/70 backdrop-blur border border-indigo-200 text-indigo-750 hover:bg-indigo-50 hover:text-indigo-850 shadow-md rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
                   >
                     <Link href="/user/products">
                       <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
@@ -1039,36 +1037,34 @@ export default function HomePage() {
                     size="lg"
                     variant="outline"
                     asChild
-                    className="bg-green-600/20 backdrop-blur-md border-green-400/30 text-green-100 hover:bg-green-600/30 shadow-lg rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
+                    className="bg-emerald-50 border border-emerald-250 text-emerald-700 hover:bg-emerald-100/70 shadow-sm rounded-full px-6 sm:px-8 font-bold hover:-translate-y-0.5 transition-all duration-300 h-11 sm:h-12 text-sm sm:text-base"
                   >
                     <a href="/app-release.apk" download>
-                      <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                      <Download className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-pulse" />
                       Download App
                     </a>
                   </Button>
                 </div>
 
                 {/* Marketplace stats */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-6 pt-4 sm:pt-6 border-t border-white/10 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+                <div className="grid grid-cols-3 gap-2 sm:gap-6 pt-4 sm:pt-6 border-t border-slate-200 max-w-md animate-fade-in-up" style={{ animationDelay: '400ms' }}>
                   <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.listings.toLocaleString()}+</div>
-                    <div className="text-indigo-200/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider mt-0.5">Active Products</div>
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-indigo-900 group-hover/stat:text-indigo-700 transition-colors">{stats.listings.toLocaleString()}+</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mt-0.5">Active Products</div>
                   </div>
                   <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">{stats.users.toLocaleString()}+</div>
-                    <div className="text-indigo-200/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider mt-0.5">Verified Users</div>
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-indigo-900 group-hover/stat:text-indigo-700 transition-colors">{stats.users.toLocaleString()}+</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mt-0.5">Verified Users</div>
                   </div>
                   <div className="group/stat cursor-default hover:scale-105 transition-transform duration-200">
-                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white group-hover/stat:text-indigo-200 transition-colors">24/7</div>
-                    <div className="text-indigo-200/80 text-[10px] sm:text-xs font-semibold uppercase tracking-wider mt-0.5">Support</div>
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-indigo-900 group-hover/stat:text-indigo-700 transition-colors">24/7</div>
+                    <div className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider mt-0.5">Support</div>
                   </div>
                 </div>
               </div>
 
               {/* Right Side: Showcase Columns of Featured Listings */}
-              <div className="relative h-[480px] hidden lg:block overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/20 z-10 pointer-events-none" />
-
+              <div className="relative h-[480px] hidden lg:block overflow-hidden rounded-3xl border border-indigo-100/50 bg-white/40 p-4 backdrop-blur-sm shadow-md">
                 {/* Featured Label overlay */}
                 <div className="absolute top-4 left-4 z-20 bg-indigo-600/90 text-white font-bold text-[10px] tracking-widest uppercase py-1 px-3.5 rounded-full shadow-md backdrop-blur border border-indigo-400/30">
                   Featured Products
@@ -1083,7 +1079,7 @@ export default function HomePage() {
                         <Link
                           key={`${listing.id}-col1-${index}`}
                           href={`/products/${listing.id}`}
-                          className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                          className="block rounded-xl overflow-hidden border border-slate-100 bg-white shadow-sm hover:shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
                         >
                           {listing.images && listing.images[0] ? (
                             <img
@@ -1092,13 +1088,13 @@ export default function HomePage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center">
                               <span className="text-2xl">📦</span>
                             </div>
                           )}
-                          <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
-                            <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
-                            <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                          <div className="absolute inset-x-0 bottom-0 bg-white/95 p-2 border-t border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-800 truncate">{listing.title}</p>
+                            <p className="text-[10px] font-extrabold text-indigo-650">₱{listing.price?.toLocaleString()}</p>
                           </div>
                         </Link>
                       ))}
@@ -1112,7 +1108,7 @@ export default function HomePage() {
                         <Link
                           key={`${listing.id}-col2-${index}`}
                           href={`/products/${listing.id}`}
-                          className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                          className="block rounded-xl overflow-hidden border border-slate-100 bg-white shadow-sm hover:shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
                         >
                           {listing.images && listing.images[0] ? (
                             <img
@@ -1121,13 +1117,13 @@ export default function HomePage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center">
                               <span className="text-2xl">📦</span>
                             </div>
                           )}
-                          <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
-                            <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
-                            <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                          <div className="absolute inset-x-0 bottom-0 bg-white/95 p-2 border-t border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-800 truncate">{listing.title}</p>
+                            <p className="text-[10px] font-extrabold text-indigo-650">₱{listing.price?.toLocaleString()}</p>
                           </div>
                         </Link>
                       ))}
@@ -1141,7 +1137,7 @@ export default function HomePage() {
                         <Link
                           key={`${listing.id}-col3-${index}`}
                           href={`/products/${listing.id}`}
-                          className="block rounded-xl overflow-hidden border border-white/20 bg-slate-900/80 shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
+                          className="block rounded-xl overflow-hidden border border-slate-100 bg-white shadow-sm hover:shadow-md group relative aspect-square transition-transform duration-300 hover:scale-[1.03]"
                         >
                           {listing.images && listing.images[0] ? (
                             <img
@@ -1150,13 +1146,13 @@ export default function HomePage() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-indigo-500/30 to-blue-500/30 flex items-center justify-center">
+                            <div className="w-full h-full bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center">
                               <span className="text-2xl">📦</span>
                             </div>
                           )}
-                          <div className="absolute inset-x-0 bottom-0 bg-slate-950/90 p-2 border-t border-white/10">
-                            <p className="text-[10px] font-bold text-white truncate">{listing.title}</p>
-                            <p className="text-[10px] font-extrabold text-indigo-300">₱{listing.price?.toLocaleString()}</p>
+                          <div className="absolute inset-x-0 bottom-0 bg-white/95 p-2 border-t border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-800 truncate">{listing.title}</p>
+                            <p className="text-[10px] font-extrabold text-indigo-650">₱{listing.price?.toLocaleString()}</p>
                           </div>
                         </Link>
                       ))}
@@ -1171,14 +1167,14 @@ export default function HomePage() {
           <div className="absolute inset-x-0 bottom-8 z-10 flex justify-center pointer-events-none">
             <button
               onClick={() => window.scrollTo({ top: window.innerHeight, behavior: 'smooth' })}
-              className="flex flex-col items-center gap-2 text-white/80 hover:text-white transition-all duration-300 group hero-scroll-cue pointer-events-auto"
+              className="flex flex-col items-center gap-2 text-indigo-950/80 hover:text-indigo-950 transition-all duration-300 group hero-scroll-cue pointer-events-auto"
             >
               <span className="text-xs font-semibold tracking-wider uppercase opacity-0 group-hover:opacity-100 transition-opacity duration-300 mb-1">
                 Scroll to explore
               </span>
               <div className="relative">
-                <ChevronDown className="w-6 h-6" />
-                <div className="absolute inset-0 bg-white/20 blur-sm rounded-full scale-75 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <ChevronDown className="w-6 h-6 animate-subtle-bounce" />
+                <div className="absolute inset-0 bg-indigo-50/40 blur-sm rounded-full scale-75 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               </div>
             </button>
           </div>
@@ -1193,48 +1189,6 @@ export default function HomePage() {
           </div>
 
           <div className="container mx-auto relative z-10">
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="max-w-2xl mx-auto mb-8">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-5 w-5" />
-                <input
-                  type="text"
-                  placeholder="Search for products, categories, or locations..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                  className="w-full pl-12 pr-32 py-4 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all duration-300 shadow-md hover:shadow-lg text-sm sm:text-base text-slate-800 dark:text-slate-100"
-                />
-                <Button
-                  type="submit"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6 shadow-md transition-all duration-200 h-10 font-bold"
-                >
-                  Search
-                </Button>
-
-                {/* Search Suggestions Dropdown */}
-                {showSuggestions && searchSuggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
-                    {searchSuggestions.map((suggestion) => (
-                      <Link
-                        key={suggestion.id}
-                        href={`/products/${suggestion.id}`}
-                        onClick={() => {
-                          setSearchQuery(suggestion.title)
-                          setShowSuggestions(false)
-                        }}
-                        className="block px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
-                      >
-                        <div className="font-medium text-slate-900 dark:text-slate-100">{suggestion.title}</div>
-                        <div className="text-sm text-indigo-600 dark:text-indigo-400">₱{suggestion.price.toLocaleString()}</div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </form>
-
             {/* Trending Products */}
             <section ref={trendingRef} className="max-w-5xl mx-auto mb-16" aria-labelledby="trending-products-heading">
               <div className={trendingInView ? 'trending-section-visible' : 'opacity-0'}>
@@ -1620,35 +1574,35 @@ export default function HomePage() {
         </section>
 
         {/* Bottom CTA Banner */}
-        <section ref={footerRef} className={`py-24 px-4 bg-gradient-to-r from-slate-950/90 via-indigo-950/80 to-blue-950/70 text-white relative overflow-hidden transition-all duration-700 ${footerInView ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
+        <section ref={footerRef} className={`py-24 px-4 bg-gradient-to-br from-indigo-50/70 via-blue-50/60 to-indigo-100/50 text-slate-900 border-t border-indigo-100 relative overflow-hidden transition-all duration-700 ${footerInView ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}>
           {/* Enhanced glow backdrop elements */}
-          <div className="absolute inset-0 opacity-25 pointer-events-none">
-            <div className="absolute top-10 right-10 w-96 h-96 bg-indigo-500 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute inset-0 opacity-20 pointer-events-none">
+            <div className="absolute top-10 right-10 w-96 h-96 bg-indigo-300/40 rounded-full blur-3xl animate-pulse" />
+            <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-300/40 rounded-full blur-3xl animate-pulse" />
           </div>
 
           <div className="container mx-auto text-center relative z-10 max-w-3xl space-y-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-xs font-semibold uppercase tracking-wider text-indigo-200 mb-2">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-150 rounded-full text-xs font-semibold uppercase tracking-wider text-indigo-800 mb-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-500 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-600"></span>
               </span>
               Join Our Community
             </div>
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-white">
+            <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight leading-tight text-indigo-950">
               Ready to Start Buying or Selling?
             </h2>
-            <p className="text-lg sm:text-xl text-indigo-100/90 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl text-slate-650 max-w-2xl mx-auto leading-relaxed font-medium">
               Join thousands of users already trading and connecting safely on SGShop.
             </p>
             <div className="flex gap-4 justify-center flex-wrap pt-4">
               <Button
                 size="lg"
                 asChild
-                className="bg-white hover:bg-indigo-50 text-indigo-700 shadow-2xl rounded-full px-8 sm:px-10 font-bold h-12 sm:h-14 text-base hover:scale-105 transition-all duration-300"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-full px-8 sm:px-10 font-bold h-12 sm:h-14 text-base hover:scale-105 transition-all duration-300 border-none"
               >
                 <Link href="/register">
-                  <Users className="mr-2 h-5 w-5 text-indigo-600" />
+                  <Users className="mr-2 h-5 w-5 text-indigo-200" />
                   Create Account
                 </Link>
               </Button>
@@ -1656,10 +1610,10 @@ export default function HomePage() {
                 size="lg"
                 variant="outline"
                 asChild
-                className="bg-white/10 backdrop-blur-md border-2 border-white/30 text-white hover:bg-white/20 hover:border-white/50 shadow-xl rounded-full px-8 sm:px-10 font-bold h-12 sm:h-14 text-base hover:scale-105 transition-all duration-300"
+                className="bg-white/70 backdrop-blur border border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-850 shadow-md rounded-full px-8 sm:px-10 font-bold h-12 sm:h-14 text-base hover:scale-105 transition-all duration-300"
               >
                 <Link href="/browse">
-                  <ShoppingBag className="mr-2 h-5 w-5 text-indigo-200" />
+                  <ShoppingBag className="mr-2 h-5 w-5 text-indigo-600" />
                   Explore Products
                 </Link>
               </Button>

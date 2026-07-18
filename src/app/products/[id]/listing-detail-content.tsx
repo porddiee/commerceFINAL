@@ -342,26 +342,37 @@ export default function ListingDetailContent({ listingId }: ListingDetailContent
                   </div>
                 </div>
 
-                {/* Meetup Coordinates & Metadata */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3 border p-3 rounded-2xl bg-slate-50/10 border-slate-200 dark:border-slate-850">
-                    <MapPin className="h-5 w-5 text-indigo-500 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[9px] uppercase font-bold text-slate-400">Meetup Location</p>
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{listing.location}</p>
-                    </div>
-                  </div>
+                 {/* Meetup Coordinates & Metadata */}
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                   <div className="flex items-center gap-3 border p-3 rounded-2xl bg-slate-50/10 border-slate-200 dark:border-slate-850">
+                     <MapPin className="h-5 w-5 text-indigo-500 shrink-0" />
+                     <div className="min-w-0">
+                       <p className="text-[9px] uppercase font-bold text-slate-400">Meetup Location</p>
+                       <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{listing.location}</p>
+                     </div>
+                   </div>
 
-                  <div className="flex items-center gap-3 border p-3 rounded-2xl bg-slate-50/10 border-slate-200 dark:border-slate-850">
-                    <Calendar className="h-5 w-5 text-indigo-500 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[9px] uppercase font-bold text-slate-400">Listed Date</p>
-                      <p className="text-xs font-bold text-slate-850 dark:text-slate-200 truncate">
-                        {new Date(listing.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                   <div className="flex items-center gap-3 border p-3 rounded-2xl bg-slate-50/10 border-slate-200 dark:border-slate-850">
+                     <Calendar className="h-5 w-5 text-indigo-500 shrink-0" />
+                     <div className="min-w-0">
+                       <p className="text-[9px] uppercase font-bold text-slate-400">Listed Date</p>
+                       <p className="text-xs font-bold text-slate-850 dark:text-slate-200 truncate">
+                         {new Date(listing.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                       </p>
+                     </div>
+                   </div>
+
+                   {/* Quantity Available */}
+                   <div className="flex items-center gap-3 border p-3 rounded-2xl bg-slate-50/10 border-slate-200 dark:border-slate-850">
+                     <ShoppingCart className="h-5 w-5 text-indigo-500 shrink-0" />
+                     <div className="min-w-0">
+                       <p className="text-[9px] uppercase font-bold text-slate-400">Quantity Available</p>
+                       <p className={`text-xs font-bold ${listing.quantity === 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200'}`}>
+                         {listing.quantity === 0 ? 'Sold Out' : `${listing.quantity} item${listing.quantity > 1 ? 's' : ''} available`}
+                       </p>
+                     </div>
+                   </div>
+                 </div>
 
                 {/* View counter metadata */}
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">

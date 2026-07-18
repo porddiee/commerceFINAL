@@ -60,6 +60,28 @@ export default function ManageProductsPage() {
     }
   }, [user])
 
+  // Refresh products when page regains focus (e.g. after editing a product)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        fetchProducts()
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        fetchProducts()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user])
+
   const handleTouchStart = (e: React.TouchEvent) => {
     setTouchStart(e.touches[0].clientY)
   }
@@ -645,6 +667,15 @@ export default function ManageProductsPage() {
                         className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                       />
                       
+                      {/* Sold Out Overlay */}
+                      {product.quantity === 0 && (
+                        <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-10">
+                          <div className="bg-slate-800/40 text-slate-300 px-3 py-1.5 rounded-md font-semibold text-xs shadow border border-slate-600/40" style={{ transform: 'rotate(-45deg)' }}>
+                            SOLD OUT
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* Floating Checkbox */}
                       <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-white/95 dark:bg-slate-950/95 p-1 sm:p-1.5 rounded-lg shadow-md border border-slate-200/50">
                         <Checkbox
@@ -696,6 +727,20 @@ export default function ManageProductsPage() {
                             Edit
                           </Link>
                         </Button>
+                        
+                        {product.quantity === 0 && (
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            asChild
+                            className="h-7 sm:h-8 w-auto px-2 sm:px-2.5 rounded-lg sm:rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+                            title="Restock Product"
+                          >
+                            <Link href={`/user/products/${product.id}/edit`}>
+                              <span className="text-[10px] sm:text-xs font-bold">Restock</span>
+                            </Link>
+                          </Button>
+                        )}
                         
                         {product.status !== 'active' && (
                           <Button 

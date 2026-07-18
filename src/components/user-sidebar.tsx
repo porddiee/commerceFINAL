@@ -151,11 +151,11 @@ export function UserSidebar({ isAuthenticated = false }: { isAuthenticated?: boo
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="flex items-center justify-center p-4 border-b border-white/10 h-16">
-            <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex items-center p-4 border-b border-white/10 h-16">
+            <div className="flex items-center gap-2 overflow-hidden pl-2">
               {shouldExpand && (
                 <span className="font-black text-xl text-white whitespace-nowrap tracking-tight">
-                  SGShop
+                  Sidebar Navigation
                 </span>
               )}
             </div>

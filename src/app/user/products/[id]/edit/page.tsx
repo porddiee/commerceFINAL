@@ -140,6 +140,8 @@ export default function EditProductPage() {
         price: parseFloat(formData.price),
         condition: formData.condition as Condition,
         location: formData.location,
+        buy_type: formData.buy_type,
+        quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
         images: allImages,
       })
       

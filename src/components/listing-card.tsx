@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Eye, Star, ShoppingCart, ShoppingBag } from 'lucide-react'
+import { Eye, Star, ShoppingCart, ShoppingBag, Ban } from 'lucide-react'
 import { formatPrice, formatRelativeTime } from '@/lib/utils'
 
 interface ListingCardProps {
@@ -79,14 +79,14 @@ export default function ListingCard({
                 </div>
               )}
 
-              {/* Sliding Description Overlay (reveals on hover directly above product title) — Hidden on mobile */}
-              {description && (
-                <div className="hidden sm:flex absolute inset-x-0 bottom-0 bg-slate-950/90 text-white p-3 text-xs translate-y-full group-hover:translate-y-0 transition-transform duration-300 backdrop-blur-sm flex-col justify-center pointer-events-none select-none z-10 h-[70%]">
-                  <p className="line-clamp-4 leading-relaxed text-slate-200 font-medium">
-                    {description}
-                  </p>
-                </div>
-              )}
+               {/* Sliding Description Overlay (reveals on hover directly above product title) — Hidden on mobile */}
+               {description && (
+                 <div className="hidden sm:flex absolute inset-x-0 bottom-0 bg-slate-950/90 text-white p-3 text-xs translate-y-full group-hover:translate-y-0 transition-transform duration-300 backdrop-blur-sm flex-col justify-center pointer-events-none select-none z-10 h-[40%]">
+                   <p className="line-clamp-4 leading-relaxed text-slate-200 font-medium">
+                     {description}
+                   </p>
+                 </div>
+               )}
 
               {/* Floating Condition Badge */}
               <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 z-10">
@@ -102,8 +102,9 @@ export default function ListingCard({
 
               {/* Sold Out Badge */}
               {quantity === 0 && (
-                <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-20">
-                  <div className="bg-red-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm shadow-lg border-2 border-red-500">
+                <div className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px] flex items-center justify-center z-20">
+                  <div className="bg-slate-800/40 text-slate-300 px-4 py-2 sm:px-5 sm:py-2.5 rounded-md sm:rounded-lg font-semibold text-xs sm:text-sm shadow border border-slate-600/40 flex items-center gap-1.5" style={{ transform: 'rotate(-45deg)' }}>
+                    <Ban className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     SOLD OUT
                   </div>
                 </div>

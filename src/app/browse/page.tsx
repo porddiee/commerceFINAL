@@ -17,7 +17,7 @@ import { formatPrice } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store/auth'
 import { useCartStore } from '@/lib/store/auth'
 import { useLanguageStore } from '@/lib/store/language'
-import { categoriesService, listingsService, savedListingsService, searchHistoryService, recentlyViewedService } from '@/services'
+import { categoriesService, listingsService, ordersService, savedListingsService, searchHistoryService, recentlyViewedService } from '@/services'
 import { createClient } from '@/lib/supabase/client'
 
 export default function BrowsePage() {
@@ -343,10 +343,26 @@ export default function BrowsePage() {
         profiles: sellerMap.get(listing.seller_id) || null
       }))
 
+      // Fetch purchase counts (completed orders) for all listings
+      const listingIds = listingsWithSellers.map((l: any) => l.id)
+      let orderCounts: Record<string, number> = {}
+      if (listingIds.length > 0) {
+        try {
+          orderCounts = await ordersService.countCompletedOrdersByListingIds(listingIds)
+        } catch (error) {
+          console.error('Error fetching order counts:', error)
+        }
+      }
+
+      const listingsWithPurchaseCount = listingsWithSellers.map((listing: any) => ({
+        ...listing,
+        purchaseCount: orderCounts[listing.id] || 0
+      }))
+
       if (currentPage === 0) {
-        setListings(listingsWithSellers)
+        setListings(listingsWithPurchaseCount)
       } else {
-        setListings((prev) => [...prev, ...listingsWithSellers])
+        setListings((prev) => [...prev, ...listingsWithPurchaseCount])
       }
 
       setHasMore((currentPage + 1) * 16 < (count || 0))
@@ -453,7 +469,7 @@ export default function BrowsePage() {
 
             {/* Autocomplete Suggestions Popover */}
             {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-20 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
                 {suggestions.map((suggestion) => (
                   <Link
                     key={suggestion.id}
@@ -488,7 +504,7 @@ export default function BrowsePage() {
 
             {/* Search History Popover */}
             {showHistory && searchHistory.length > 0 && !showSuggestions && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-20 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="flex items-center justify-between mb-2.5 px-1">
                   <span className="text-xs font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-wider">
                     <Clock className="h-3.5 w-3.5" />
@@ -596,7 +612,7 @@ export default function BrowsePage() {
                   <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom">
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
@@ -613,7 +629,7 @@ export default function BrowsePage() {
                   <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="All Conditions" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom">
                     {conditions.map((cond) => (
                       <SelectItem key={cond.value} value={cond.value}>
                         {cond.label}
@@ -629,7 +645,7 @@ export default function BrowsePage() {
                   <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="Newest" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom">
                     {sortOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}
@@ -645,7 +661,7 @@ export default function BrowsePage() {
                   <SelectTrigger className="h-9 sm:h-10 border border-slate-200 dark:border-slate-850 focus:border-indigo-500 rounded-lg sm:rounded-xl text-[11px] sm:text-xs">
                     <SelectValue placeholder="Any Time" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent side="bottom">
                     {dateOptions.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         {opt.label}

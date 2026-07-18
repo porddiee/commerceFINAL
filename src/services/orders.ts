@@ -2,6 +2,10 @@ import { createClient } from '@/lib/supabase/client'
 
 const supabase = createClient()
 
+export interface OrderWithListing extends Order {
+  listing_id: string
+}
+
 export interface Order {
   id: string
   buyer_id: string
@@ -17,6 +21,19 @@ export interface Order {
 }
 
 export const ordersService = {
+  /**
+   * Count orders by listing ID (for purchase count)
+   */
+  async countOrdersByListing(listingId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('listing_id', listingId)
+
+    if (error) throw error
+    return count || 0
+  },
+
   /**
    * Get order by ID
    */
@@ -57,6 +74,25 @@ export const ordersService = {
     
     if (error) throw error
     return data || []
+  },
+
+  /**
+   * Count completed orders by listing IDs
+   */
+  async countCompletedOrdersByListingIds(listingIds: string[]): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('listing_id')
+      .in('listing_id', listingIds)
+      .in('status', ['delivered'])
+
+    if (error) throw error
+
+    const counts: Record<string, number> = {}
+    for (const order of data || []) {
+      counts[order.listing_id] = (counts[order.listing_id] || 0) + 1
+    }
+    return counts
   },
 
   /**

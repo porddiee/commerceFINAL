@@ -1,4 +1,4 @@
-'use client'
+/*  */'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore, useCartStore } from '@/lib/store/auth'
 import { createClient } from '@/lib/supabase/client'
 import { notificationsService, savedListingsService } from '@/services'
-import { User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
+import { Search, User, LogOut, Settings, Bell, Check, ShoppingCart, X, MessageSquare } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 export function Header() {
@@ -27,6 +27,9 @@ export function Header() {
   const supabase = createClient()
   const [notifications, setNotifications] = useState<any[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
@@ -186,6 +189,43 @@ export function Header() {
     }
   }, [user])
 
+  // Search suggestions
+  useEffect(() => {
+    const fetchSearchSuggestions = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchSuggestions([])
+        setShowSuggestions(false)
+        return
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('listings')
+          .select('id, title, price')
+          .ilike('title', `%${searchQuery.trim()}%`)
+          .eq('status', 'active')
+          .limit(5)
+
+        if (error) throw error
+        setSearchSuggestions(data || [])
+        setShowSuggestions(true)
+      } catch (error) {
+        console.error('Error fetching search suggestions:', error)
+        setSearchSuggestions([])
+      }
+    }
+
+    const debounceTimer = setTimeout(fetchSearchSuggestions, 300)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/browse?search=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     signOut()
@@ -194,7 +234,61 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-55 border-b border-slate-200/50 dark:border-slate-800/50 bg-white/85 dark:bg-slate-950/85 backdrop-blur-md shadow-sm transition-all duration-200">
-      <div className="container flex h-16 items-center justify-end px-4 lg:px-8">
+      <div className="container flex h-16 items-center justify-between px-4 lg:px-8">
+        {/* Logo + Site Name */}
+        <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-shrink-0">
+          <img
+            src="/ChatGPT%20Image%20Jul%2018%2C%202026%2C%2010_28_59%20AM.png"
+            alt="SGShop Logo"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover shadow-sm"
+          />
+          <span className="text-xl sm:text-2xl font-black tracking-tight">
+            <span className="text-indigo-950 dark:text-indigo-200">SG</span><span className="text-indigo-600 dark:text-indigo-400">SHOP</span>
+          </span>
+        </Link>
+        {/* Search Bar */}
+        <div className="hidden md:flex flex-1 max-w-lg ml-[0%] lg:ml-[3%] mr-auto items-center">
+          <form onSubmit={handleSearchSubmit} className="w-full">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                className="w-full pl-9 pr-9 py-2 rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200 text-sm text-slate-800 dark:text-slate-100"
+              />
+              <Button
+                type="submit"
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-all duration-200 h-7 w-7 flex items-center justify-center p-0"
+                aria-label="Search"
+              >
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-950 rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden z-50">
+                  {searchSuggestions.map((suggestion) => (
+                    <Link
+                      key={suggestion.id}
+                      href={`/products/${suggestion.id}`}
+                      onClick={() => {
+                        setSearchQuery(suggestion.title)
+                        setShowSuggestions(false)
+                      }}
+                      className="block px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-0"
+                    >
+                      <div className="font-medium text-xs text-slate-900 dark:text-slate-100">{suggestion.title}</div>
+                      <div className="text-[11px] text-indigo-600 dark:text-indigo-400">₱{suggestion.price?.toLocaleString()}</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </form>
+        </div>
         <div className="flex items-center gap-2.5">
           {user ? (
             <>
