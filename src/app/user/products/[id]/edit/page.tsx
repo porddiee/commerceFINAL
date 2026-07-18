@@ -135,7 +135,8 @@ export default function EditProductPage() {
 
       const newQuantity = typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity
 
-      await listingsService.updateListing(params.id as string, {
+      // Automatically re-activate product when restocking from 0 to > 0
+      const updateData: any = {
         category_id: formData.category_id,
         title: formData.title,
         description: formData.description,
@@ -144,10 +145,13 @@ export default function EditProductPage() {
         location: formData.location,
         buy_type: formData.buy_type,
         quantity: newQuantity,
-        // Automatically re-activate product when restocking from 0 to > 0
-        ...(newQuantity > 0 ? { status: 'active' as const } : {}),
         images: allImages,
-      })
+      }
+      if (newQuantity > 0) {
+        updateData.status = 'active'
+      }
+
+      await listingsService.updateListing(params.id as string, updateData)
       
       router.push('/user/products')
     } catch (error: unknown) {

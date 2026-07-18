@@ -11,7 +11,6 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       .from('listings')
       .select('title, description, price, currency, images, location')
       .eq('id', resolvedParams.id)
-      .eq('status', 'active')
       .single()
 
     if (!listing) {
