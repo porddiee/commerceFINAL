@@ -133,6 +133,8 @@ export default function EditProductPage() {
       const uploadedImageUrls = await uploadImages()
       const allImages = [...existingImages, ...uploadedImageUrls]
 
+      const newQuantity = typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity
+
       await listingsService.updateListing(params.id as string, {
         category_id: formData.category_id,
         title: formData.title,
@@ -141,7 +143,9 @@ export default function EditProductPage() {
         condition: formData.condition as Condition,
         location: formData.location,
         buy_type: formData.buy_type,
-        quantity: typeof formData.quantity === 'string' ? (parseInt(formData.quantity) || 1) : formData.quantity,
+        quantity: newQuantity,
+        // Automatically re-activate product when restocking from 0 to > 0
+        ...(newQuantity > 0 ? { status: 'active' as const } : {}),
         images: allImages,
       })
       
