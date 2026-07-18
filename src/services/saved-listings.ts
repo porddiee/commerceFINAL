@@ -68,10 +68,9 @@ export const savedListingsService = {
       .select('id')
       .eq('user_id', userId)
       .eq('listing_id', listingId)
-      .single()
+      .maybeSingle()
     
-    if (error && error.code !== 'PGRST116') throw error // PGRST116 = not found
-    
+    if (error) throw error
     return !!data
   },
 

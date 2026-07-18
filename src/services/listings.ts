@@ -257,22 +257,19 @@ export const listingsService = {
    * Increment listing views
    */
   async incrementViews(id: string): Promise<void> {
-    const { error } = await supabase.rpc('increment_views', { listing_id: id })
+    // Directly update views without relying on RPC
+    const { data: listing } = await supabase
+      .from('listings')
+      .select('views')
+      .eq('id', id)
+      .maybeSingle()
     
-    // If RPC doesn't exist, fall back to direct update
-    if (error) {
-      const { data: listing } = await supabase
+    if (listing) {
+      await supabase
         .from('listings')
-        .select('views')
+        .update({ views: (listing.views || 0) + 1 })
         .eq('id', id)
-        .single()
-      
-      if (listing) {
-        await supabase
-          .from('listings')
-          .update({ views: listing.views + 1 })
-          .eq('id', id)
-      }
+        .maybeSingle()
     }
   },
 

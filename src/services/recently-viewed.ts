@@ -35,24 +35,20 @@ export const recentlyViewedService = {
       const { data } = await supabase
         .from('recently_viewed')
         .select(`
-          listings (
-            *,
-            profiles!listings_seller_id_fkey (
-              full_name,
-              avatar_url
-            )
-          )
+          listing_id,
+          listings (*)
         `)
         .eq('user_id', userId)
         .order('viewed_at', { ascending: false })
         .limit(limit)
-      
+       
       // Remove duplicates by listing ID
       const uniqueListings = data?.map((item: any) => ({
         ...item.listings,
-        sellerName: item.profiles?.full_name || 'Unknown',
-        sellerAvatar: item.profiles?.avatar_url
+        sellerName: item.listings?.profiles?.full_name || 'Unknown',
+        sellerAvatar: item.listings?.profiles?.avatar_url
       })).filter(Boolean) || []
+
       
       const seen = new Set()
       const deduplicated = uniqueListings.filter((listing: RecentlyViewedListing) => {
